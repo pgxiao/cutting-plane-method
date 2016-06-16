@@ -11,7 +11,7 @@ lazy_import("sage.numerical.interactive_simplex_method",
             ["InteractiveLPProblem", "InteractiveLPProblemStandardForm"])
 
 lazy_import("sage.numerical.interactive_mi_simplex_method",
-            ["InteractiveMILPProblem"])
+            ["InteractiveMILPProblem", "InteractiveMILPProblemStandardForm"])
 
 from sage.misc.superseded import deprecated_callable_import
 
