@@ -3,28 +3,35 @@ from sage.numerical.interactive_simplex_method import *
 from sage.plot.all import Graphics, arrow, line, point, rainbow, text
 from sage.rings.all import Infinity, PolynomialRing, QQ, RDF, ZZ
 
-class InteractiveMILPProblem(InteractiveLPProblem):
-
-    def __init__(self, A, b, c, x="x",
+class InteractiveMILPProblem(SageObject):
+    def __init__(self, A=None, b=None, c=None,
+                 relaxation=None, x="x",
                  constraint_type="<=", variable_type="", 
                  problem_type="max", base_ring=None, 
                  is_primal=True, objective_constant_term=0, 
                  integer_variables=False):
-        super(InteractiveMILPProblem, self).__init__(A, b, c, x="x",
-            constraint_type=constraint_type, 
-            variable_type=variable_type, 
-            problem_type=problem_type, 
-            base_ring=base_ring, 
-            is_primal=is_primal, 
-            objective_constant_term=objective_constant_term)
-        R = PolynomialRing(self.base_ring(), list(self.Abcx()[3]), order="neglex")
+        if relaxation:
+            self._relaxation = relaxation
+        else:
+            self._relaxation = InteractiveLPProblem(A=A, b=b, c=c, x="x",
+                                constraint_type=constraint_type, 
+                                variable_type=variable_type, 
+                                problem_type=problem_type, 
+                                base_ring=base_ring, 
+                                is_primal=is_primal, 
+                                objective_constant_term=objective_constant_term)
+        R = PolynomialRing(self._relaxation.base_ring(), list(self._relaxation.Abcx()[3]), order="neglex")
         if integer_variables is False:
             self._integer_variables = set([])
         elif integer_variables is True:
-            self._integer_variables = set(self._Abcx[3])
+            self._integer_variables = set(self._relaxation.Abcx[3])
         else:
             self._integer_variables = set([variable(R, v)
                                            for v in integer_variables])
+
+    @classmethod
+    def with_relaxation(cls, relaxation, integer_variables=False):
+        return cls(relaxation=relaxation, integer_variables=integer_variables)
 
     def add_constraint(self, coefficients, new_b, 
                             new_constraint_type="<=", integer_slack=False):
@@ -309,52 +316,82 @@ class InteractiveMILPProblem(InteractiveLPProblem):
             result += self.plot_lines(F, "y")
         return result
 
-class InteractiveMILPProblemStandardForm(InteractiveLPProblemStandardForm):
-    def __init__(self, A, b, c, x="x", problem_type="max",
+    def relaxation(self):
+        r"""
+        Return the relaxation problem of ``self``
+
+        OUTPUT:
+
+        - an :class:`LP problem <InteractiveLPProblem>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c)
+            sage: R = InteractiveLPProblem(A, b, c)
+            sage: P.relaxation() == R
+            True
+        """
+        return self._relaxation
+
+class InteractiveMILPProblemStandardForm(SageObject):
+    def __init__(self, A=None, b=None, c=None, 
+                 relaxation=None,
+                 x="x", problem_type="max",
                  slack_variables=None, auxiliary_variable=None,
                  base_ring=None, is_primal=True, objective_name=None,
                  objective_constant_term=0, integer_variables=False):
-        super(InteractiveMILPProblemStandardForm, self).__init__(
-            A, b, c, x=x, 
-            problem_type=problem_type,
-            slack_variables=slack_variables, 
-            auxiliary_variable=auxiliary_variable,
-            base_ring=base_ring,
-            is_primal=is_primal,
-            objective_name=objective_name,
-            objective_constant_term=objective_constant_term)
-        # R = PolynomialRing(self.base_ring(), list(self.Abcx()[3]), order="neglex")
-        A = self._Abcx[0]
-        b = self._Abcx[1]
-        x = self._Abcx[3]
-        R = self._R
+        if relaxation:
+            self._relaxation = relaxation
+        else:
+            self._relaxation = InteractiveLPProblemStandardForm(
+                                A=A, b=b, c=c, x=x, 
+                                problem_type=problem_type,
+                                slack_variables=slack_variables, 
+                                auxiliary_variable=auxiliary_variable,
+                                base_ring=base_ring,
+                                is_primal=is_primal,
+                                objective_name=objective_name,
+                                objective_constant_term=objective_constant_term)
+        A = self._relaxation._Abcx[0]
+        b = self._relaxation._Abcx[1]
+        x = self._relaxation._Abcx[3]
+        R = self._relaxation._R
+        m = self._relaxation.m()
+        n = self._relaxation.n()
+        slack_variables = self._relaxation.slack_variables()
         if integer_variables == False:
             self._integer_variables = set([])
         elif integer_variables == True:
-            self._integer_variables = set(self.Abcx()[3])
+            self._integer_variables = set(x)
         else:
             self._integer_variables = set([])
             for v in integer_variables:
                 self._integer_variables.add(variable(R, v))
         # if there is no assigned integer slack variables by the user
         # use sufficient conditions to assign slack variables to be integer        
-        if not self._integer_variables.intersection(set(self.slack_variables())): 
+        if not self._integer_variables.intersection(set(slack_variables)): 
             if self._integer_variables.intersection(set(x)) == set(x):
-                for i in range (self.m()):
+                for i in range (m):
                     if b[i].is_integer() and all(coef.is_integer() for coef in A[i]):
-                        self._integer_variables.add(variable(R, self.slack_variables()[i]))
+                        self._integer_variables.add(variable(R, slack_variables[i]))
         # use sufficient conditions to assign decision variables to be integer
         # example x <= 5 where the slack variable is integer
         # then x is an integer
         if self._integer_variables.intersection(set(x)) != set(x):
-            for i in range (self.m()):
-                if self.slack_variables()[i] in self._integer_variables and b[i].is_integer():
-                    for j in range (self.n()):
+            for i in range (m):
+                if slack_variables[i] in self._integer_variables and b[i].is_integer():
+                    for j in range (n):
                         set_Ai = copy(set(A[i]))
                         set_Ai.remove(A[i][j])
                         if A[i][j].is_integer() and set_Ai == {0}:
                             self._integer_variables.add(x[j])
                         
+    @classmethod
+    def with_relaxation(cls, relaxation, integer_variables=False):
+        return cls(relaxation=relaxation, integer_variables=integer_variables)
 
     def add_constraint(self, coefficients, new_b, new_slack_variable=None, integer_slack=False):
         r"""
@@ -549,3 +586,23 @@ class InteractiveMILPProblemStandardForm(InteractiveLPProblemStandardForm):
             {x1, x2, x3}
         """
         return self._integer_variables
+
+    def relaxation(self):
+        r"""
+        Return the relaxation problem of ``self``
+
+        OUTPUT:
+
+        - an :class:`LP problem in standard form <InteractiveLPProblemStandardForm>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: R = InteractiveLPProblemStandardForm(A, b, c)
+            sage: P.relaxation() == R
+            True
+        """
+        return self._relaxation
