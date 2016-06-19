@@ -33,8 +33,7 @@ class InteractiveMILPProblem(SageObject):
     def with_relaxation(cls, relaxation, integer_variables=False):
         return cls(relaxation=relaxation, integer_variables=integer_variables)
 
-    def add_constraint(self, coefficients, new_b, 
-                            new_constraint_type="<=", integer_slack=False):
+    def add_constraint(self, coefficients, new_b, new_constraint_type="<="):
         r"""
         Return a new MILP problem by adding a constraint to``self``.
 
@@ -82,26 +81,9 @@ class InteractiveMILPProblem(SageObject):
             ...
             ValueError: unknown constraint type
         """
-        if self.n_variables() != matrix(coefficients).ncols():
-            raise ValueError("A and coefficients have incompatible dimensions")
-        if new_constraint_type in ["<=", ">=", "=="]:
-            constraint_type = self._constraint_types + (new_constraint_type,)
-        else:
-            raise ValueError("unknown constraint type")
-        A = self.Abcx()[0]
-        b = self.Abcx()[1]
-        c = self.Abcx()[2]
-        A = A.stack(matrix(coefficients))
-        b = vector(tuple(b) + (new_b,))
-        if self._is_negative:
-            problem_type = "-" + self.problem_type()
-        else:
-            problem_type = self.problem_type()
-        return InteractiveMILPProblem(A, b, c, x=self.Abcx()[3],
-                    constraint_type=constraint_type,
-                    variable_type=self.variable_types(),
-                    problem_type=problem_type,
-                    objective_constant_term=self.objective_constant_term(),
+        new_relaxation = self._relaxation.add_constraint(coefficients, new_b,
+                                            new_constraint_type=new_constraint_type)
+        return InteractiveMILPProblem(relaxation = new_relaxation,
                     integer_variables=self.integer_variables())
 
     def all_variables(self):
@@ -404,7 +386,10 @@ class InteractiveMILPProblemStandardForm(SageObject):
         - ``new_b`` -- a constant term of the new constraint
 
         - ``new_slack_variable`` -- (default: depends on :func:`style`)
-        a vector of the slack variable or a string giving the name
+          a vector of the slack variable or a string giving the name
+
+        - ``integer_slack``-- (default: False) a boolean value
+          indicating if the new slack variable is integer or not.
 
         OUTPUT:
 
@@ -441,47 +426,13 @@ class InteractiveMILPProblemStandardForm(SageObject):
             ...
             ValueError: A and coefficients have incompatible dimensions
         """
-        if self.n_variables() != matrix(coefficients).ncols():
-            raise ValueError("A and coefficients have incompatible dimensions")
-        A = self.Abcx()[0]
-        b = self.Abcx()[1]
-        c = self.Abcx()[2]
-        R = self._R
-        G = list(R.gens())
-        slack = list(self.slack_variables())
-
-        if new_slack_variable is None:
-            new_slack_variable = default_variable_name("primal slack")
-            if style() == "UAlberta":
-                index = self.n() + self.m() + 1
-            elif style() == 'Vanderbei':
-                index = self.m() + 1
-            new_slack_variable = "{}{:d}".format(new_slack_variable, index)
-        if not isinstance(new_slack_variable, str):
-            new_slack_variable = str(new_slack_variable)
-        if self._is_negative:
-            problem_type = "-" + self.problem_type()
-        else:
-            problem_type = self.problem_type()
-        
-        # Construct a larger ring for variables
-        G.append(new_slack_variable)
-        R1 = PolynomialRing(self.base_ring(), G, order="neglex")
-
-        new_slack_variable = R1.gens()[len(R1.gens())-1]
-        slack.append(new_slack_variable)
-        A = A.stack(matrix(coefficients))
-        b = vector(tuple(b) + (new_b,))
-        
+        new_relaxation = add_constraint(coefficients, new_b,
+                                        new_slack_variable=new_slack_variable)
         integer_variables = self.integer_variables()
         if integer_slack:
-            integer_variables.add(new_slack_variable)
-
+            integer_variables.add(new_relaxation.slack_variables()[-1])
         return InteractiveMILPProblemStandardForm(
-                    A, b, c, x=self.Abcx()[3],
-                    problem_type=problem_type,
-                    slack_variables=slack,
-                    objective_constant_term=self.objective_constant_term(),
+                    relaxation=new_relaxation,
                     integer_variables=integer_variables)
 
     def all_variables(self):
