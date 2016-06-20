@@ -24,7 +24,7 @@ class InteractiveMILPProblem(SageObject):
         if integer_variables is False:
             self._integer_variables = set([])
         elif integer_variables is True:
-            self._integer_variables = set(self._relaxation.Abcx[3])
+            self._integer_variables = set(self._relaxation.Abcx()[3])
         else:
             self._integer_variables = set([variable(R, v)
                                            for v in integer_variables])
@@ -32,6 +32,65 @@ class InteractiveMILPProblem(SageObject):
     @classmethod
     def with_relaxation(cls, relaxation, integer_variables=False):
         return cls(relaxation=relaxation, integer_variables=integer_variables)
+
+    def __eq__(self, other):
+        r"""
+        Check if two LP problems are equal.
+
+        INPUT:
+
+        - ``other`` -- anything
+
+        OUTPUT:
+
+        - ``True`` if ``other`` is an :class:`InteractiveLPProblem` with all details the
+          same as ``self``, ``False`` otherwise.
+
+        TESTS::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=", integer_variables={"x1"})
+            sage: P2 = InteractiveMILPProblem(A, b, c, variable_type=">=", integer_variables={"x1"})
+            sage: P == P2
+            True
+            sage: P3 = InteractiveMILPProblem(A, b, c, variable_type=">=")
+            sage: P == P3
+            False
+            sage: R = InteractiveLPProblem(A, b, c, variable_type=">=")
+            sage: P4 = InteractiveMILPProblem.with_relaxation(relaxation=R, integer_variables={"x1"})
+            sage: P == P4
+            True
+        """
+        return (isinstance(other, InteractiveMILPProblem) and
+                self._relaxation == other._relaxation and
+                self._integer_variables == other._integer_variables)
+        
+    def _solution(self, x):
+        r"""
+        Return ``x`` as a normalized solution of the relaxation of ``self``.
+        
+        See :meth:`_solution` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation()._solution(x)
+
+    @cached_method
+    def _solve(self):
+        r"""
+        Return an optimal solution and the optimal value of the relaxation of ``self``.
+
+        See :meth:`_solve` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation()._solve()
+
+    def Abcx(self):
+        r"""
+        Return `A`, `b`, `c`, and `x` of the relaxation of ``self`` as a tuple.
+
+        See :meth:`Abcx` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation()._Abcx
 
     def add_constraint(self, coefficients, new_b, new_constraint_type="<="):
         r"""
@@ -103,7 +162,39 @@ class InteractiveMILPProblem(SageObject):
             sage: P.all_variables()
             {x1, x2, x3}
         """
-        return set(self.Abcx()[3])
+        return set(self.relaxation().Abcx()[3])
+
+    def base_ring(self):
+        r"""
+        Return the base ring of the relaxation of ``self``.
+
+        See :meth:`base_ring` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().base_ring()
+
+    def constant_terms(self):
+        r"""
+        Return constant terms of constraints of the relaxation of ``self``, i.e. `b`.
+
+        See :meth:`constant_terms` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().constant_terms()
+
+    def constraint_coefficients(self):
+        r"""
+        Return coefficients of constraints of the relaxation of ``self``, i.e. `A`.
+
+        See :meth:`constraint_coefficients` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().constraint_coefficients()
+
+    def constraint_types(self):
+        r"""
+        Return a tuple listing the constraint types of all rows.
+
+        See :meth:`constraint_types` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().constraint_types()
 
     def continuous_variables(self):
         r"""
@@ -127,6 +218,23 @@ class InteractiveMILPProblem(SageObject):
         C = all_variables.difference(I)
         return C
 
+    def decision_variables(self):
+        r"""
+        Return decision variables of the relaxation of ``self``, i.e. `x`.
+
+        See :meth:`decision_variables` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().decision_variables()
+
+    @cached_method
+    def feasible_set(self):
+        r"""
+        Return the feasible set of the relaxation of ``self``.
+
+        See :meth:`feasible_set` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().feasible_set()
+
     def integer_variables(self):
         r"""
         Return the set of integer decision variables of ``self``.
@@ -147,6 +255,102 @@ class InteractiveMILPProblem(SageObject):
             set()
         """
         return self._integer_variables
+
+    def is_bounded(self):
+        r"""
+        Check if the relaxation of ``self`` is bounded.
+
+        See :meth:`is_bounded` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().is_bounded()
+
+    def is_feasible(self, *x):
+        r"""
+        Check if the relaxation of ``self`` or given solution is feasible.
+        
+        See :meth:`is_feasible` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().is_feasible(*x)
+
+    def is_negative(self):
+        r"""
+        Return `True` when the relaxation problem is of type ``"-max"`` or ``"-min"``.
+
+        See :meth:`is_negative` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().is_negative()
+
+    def is_optimal(self, *x):
+        r"""
+        Check if given solution of the relaxation is feasible.
+        
+        See :meth:`is_optimal` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().is_optimal(*x)
+        
+    def n_constraints(self):
+        r"""
+        Return the number of constraints of the relaxation of ``self``, i.e. `m`.
+
+        See :meth:`n_constraints` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().n_constraints()
+
+    def n_variables(self):
+        r"""
+        Return the number of decision variables of the relaxation of ``self``, i.e. `n`.
+
+        See :meth:`n_variables` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().n_variables()
+
+    def objective_coefficients(self):
+        r"""
+        Return coefficients of the objective of the relaxation of ``self``, i.e. `c`.
+
+        See :meth:`objective_coefficients` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().objective_coefficients()
+        
+    def objective_constant_term(self):
+        r"""
+        Return the constant term of the objective of the relaxation of ``self``.
+
+        See :meth:`objective_constant_term` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().objective_constant_term()
+
+    def objective_value(self, *x):
+        r"""
+        Return the value of the objective on the given solution of the relaxation of ``self``.
+        
+        See :meth:`objective_value` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().objective_value(*x)
+
+    def optimal_solution(self):
+        r"""
+        Return **an** optimal solution of the relaxation of ``self``.
+
+        See :meth:`optimal_solution` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().optimal_solution()
+
+    def optimal_value(self):
+        r"""
+        Return the optimal value for the relaxation of ``self``.
+
+        See :meth:`optimal_value` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().optimal_value()
+
+    def plot(self, *args, **kwds):
+        r"""
+        Return a plot for solving the relaxation of ``self`` graphically.
+
+        See :meth:`plot` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().plot(*args, **kwds)
 
     def plot_constraint_or_cut(self, Ai, bi, ri, color, box, x, alpha,
                                pad=None, ith_cut=None):
@@ -201,6 +405,17 @@ class InteractiveMILPProblem(SageObject):
             result += line(vertices, color=color,
                            legend_label=label, thickness=1.5)
         return result
+
+    def plot_feasible_set(self, xmin=None, xmax=None, ymin=None, ymax=None,
+                          alpha=0.2):
+        r"""
+        Return a plot of the feasible set of the relaxation of ``self``.
+
+        See :meth:`plot_feasible_set` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        
+        return self.relaxation().plot_feasible_set(xmin=xmin, xmax=xmax, 
+                                        ymin=ymin, ymax=ymax, alpha=alpha)
 
     def plot_lines(self, F, integer_variable):
         r"""
@@ -297,6 +512,23 @@ class InteractiveMILPProblem(SageObject):
         elif x[1] in integer_variables and not x[0] in integer_variables:
             result += self.plot_lines(F, "y")
         return result
+
+    def problem_type(self):
+        r"""
+        Return the problem type of the relaxation of ``self``.
+
+        See :meth:`problem_type` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().problem_type()
+        
+    def variable_types(self):
+        r"""
+        Return a tuple listing the variable types of all decision variables
+        of the relaxation of ``self``.
+
+        See :meth:`variable_types` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().variable_types()
 
     def relaxation(self):
         r"""
