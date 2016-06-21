@@ -66,7 +66,64 @@ class InteractiveMILPProblem(SageObject):
         return (isinstance(other, InteractiveMILPProblem) and
                 self._relaxation == other._relaxation and
                 self._integer_variables == other._integer_variables)
-        
+
+    def _latex_(self):
+        r"""
+        Return a LaTeX representation of ``self``.
+
+        OUTPUT:
+
+        - a string
+
+        TESTS::
+
+            sage: A = ([1, 1, 2], [3, 1, 7], [6, 4, 5])
+            sage: b = (1000, 1500, 2000)
+            sage: c = (10, 5, 1)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=", integer_variables={'x1'})
+            sage: print(P._latex_())
+            \begin{array}{l}
+            \begin{array}{lcrcrcrcl}
+             \max \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 10 x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 5 x_{2} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} x_{3} \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} \\
+             \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} x_{2} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 2 x_{3} \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1000 \\
+             \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 3 x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} x_{2} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 7 x_{3} \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1500 \\
+             \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 6 x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 4 x_{2} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 5 x_{3} \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 2000 \\
+            \end{array} \\
+            x_{1}, x_{2}, x_{3} \geq 0
+             \\x_{1} \in \mathbb{Z} \\x_{2}, x_{3} \in \mathbb{R}\end{array}
+        """
+        lines = self.relaxation()._latex_()
+        integer_var = ""
+        continuous_var = ""
+        if self.integer_variables():
+            integer_var =  r"{} \in {}".format(
+                                   ", ".join(map(latex, self.integer_variables())),
+                                    r"\mathbb{Z}") +  r" \\"
+        if self.continuous_variables():
+            continuous_var =  r"{} \in {}".format(
+                                   ", ".join(map(latex, self.continuous_variables())),
+                                    r"\mathbb{R}")
+        return lines[:-11] + r" \\" + integer_var + continuous_var + lines[-11:]
+
+    def _repr_(self):
+        r"""
+        Return a string representation of ``self``.
+
+        OUTPUT:
+
+        - a string
+
+        TESTS::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=", integer_variables={"x1"})
+            sage: print(P._repr_())
+            MILP problem (use typeset mode to see details)
+        """
+        return "MILP problem (use typeset mode to see details)"
+
     def _solution(self, x):
         r"""
         Return ``x`` as a normalized solution of the relaxation of ``self``.
