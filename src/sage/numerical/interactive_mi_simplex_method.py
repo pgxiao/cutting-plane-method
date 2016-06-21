@@ -1,5 +1,6 @@
 from copy import copy
 from sage.numerical.interactive_simplex_method import *
+from sage.numerical.interactive_simplex_method import _latex_product
 from sage.plot.all import Graphics, arrow, line, point, rainbow, text
 from sage.rings.all import Infinity, PolynomialRing, QQ, RDF, ZZ
 
@@ -292,6 +293,33 @@ class InteractiveMILPProblem(SageObject):
         """
         return self.relaxation().feasible_set()
 
+    def get_plot_bounding_box(self, F, b,
+                              xmin=None, xmax=None, ymin=None, ymax=None):
+        r"""
+        Return the min and max for x and y of the bounding box for ``self``.
+
+        INPUT:
+
+        - ``F`` -- the feasible set of self
+        - ``b`` -- the constant terms of self
+        - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
+          not given, an attempt will be made to pick reasonable values
+
+        OUTPUT:
+
+        - four rational numbers
+        """
+        if ymax is None:
+            ymax = max(map(abs, b) + [v[1] for v in F.vertices()])
+        if ymin is None:
+            ymin = min([-ymax/4.0] + [v[1] for v in F.vertices()])
+        if xmax is None:
+            xmax = max([1.5*ymax] + [v[0] for v in F.vertices()])
+        if xmin is None:
+            xmin = min([-xmax/4.0] + [v[0] for v in F.vertices()])
+        xmin, xmax, ymin, ymax = map(QQ, [xmin, xmax, ymin, ymax])
+        return xmin, xmax, ymin, ymax
+
     def integer_variables(self):
         r"""
         Return the set of integer decision variables of ``self``.
@@ -403,14 +431,62 @@ class InteractiveMILPProblem(SageObject):
 
     def plot(self, *args, **kwds):
         r"""
-        Return a plot for solving the relaxation of ``self`` graphically.
+        Return a plot for solving ``self`` graphically.
 
-        See :meth:`plot` in :class:`InteractiveLPProblem` for documentation. 
+        INPUT:
+
+        - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
+          not given, an attempt will be made to pick reasonable values
+
+        - ``alpha`` -- (default: 0.2) determines how opaque are shadows
+
+        OUTPUT:
+
+        - a plot
+
+        .. NOTE::
+
+            This only works for problems with two decision variables.
+            On the plot the black arrow indicates the direction of growth
+            of the objective. The lines perpendicular to it are level
+            curves of the objective. If there are optimal solutions, the
+            arrow originates in one of them and the corresponding level
+            curve is solid: all points of the feasible set on it are optimal
+            solutions. Otherwise the arrow is placed in the center. If the
+            problem is infeasible or the objective is zero, a plot of the
+            feasible set only is returned.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=", integer_variables={'x1'})
+            sage: p = P.plot()
+            sage: p.show()
+
+        In this case the plot works better with the following axes ranges::
+
+            sage: p = P.plot(0, 1000, 0, 1500)
+            sage: p.show()
+
+        TESTS:
+
+        We check that zero objective can be dealt with::
+
+            sage: InteractiveLPProblem(A, b, (0, 0), variable_type=">=", integer_variable={'x1'}).plot()
+            Graphics object consisting of 8 graphics primitives
         """
-        return self.relaxation().plot(*args, **kwds)
+        FP = self.plot_feasible_set(*args, **kwds)
+        c = self.c().n().change_ring(QQ)
+        if c.is_zero():
+            return FP
+        if 'number_of_cuts' in kwds:
+            del kwds['number_of_cuts']
+        return self.plot_objective_growth_and_solution(FP, c, *args, **kwds)
 
-    def plot_constraint_or_cut(self, Ai, bi, ri, color, box, x, alpha,
-                               pad=None, ith_cut=None):
+    def plot_constraint_or_cut(self, Ai, bi, ri, color, box, x, 
+                               alpha=0.2, pad=None, ith_cut=None):
         r"""
         Return a plot of the constraint or cut of ``self``.
 
@@ -428,7 +504,7 @@ class InteractiveMILPProblem(SageObject):
 
         - ``x`` -- the decision variables of the problem
 
-        - ``alpha`` -- determines how opaque are shadows
+        - ``alpha`` -- (default: 0.2) determines how opaque are shadows
 
         - ``pad`` -- an integer
 
@@ -464,15 +540,102 @@ class InteractiveMILPProblem(SageObject):
         return result
 
     def plot_feasible_set(self, xmin=None, xmax=None, ymin=None, ymax=None,
-                          alpha=0.2):
+                          alpha=0.2, number_of_cuts=0):
         r"""
-        Return a plot of the feasible set of the relaxation of ``self``.
+        Return a plot of the feasible set of ``self``.
 
-        See :meth:`plot_feasible_set` in :class:`InteractiveLPProblem` for documentation. 
+        INPUT:
+
+        - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
+          not given, an attempt will be made to pick reasonable values
+
+        - ``alpha`` -- (default: 0.2) determines how opaque are shadows
+
+        OUTPUT:
+
+        - a plot
+
+        .. NOTE::
+
+            This only works for a problem with two decision variables. The plot
+            shows boundaries of constraints with a shadow on one side for
+            inequalities. If the :meth:`feasible_set` is not empty and at least
+            part of it is in the given boundaries, it will be shaded gray and
+            `F` will be placed in its middle.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveLPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: p = P.plot_feasible_set()
+            sage: p.show()
+
+        In this case the plot works better with the following axes ranges::
+
+            sage: p = P.plot_feasible_set(0, 1000, 0, 1500)
+            sage: p.show()
         """
-        
-        return self.relaxation().plot_feasible_set(xmin=xmin, xmax=xmax, 
-                                        ymin=ymin, ymax=ymax, alpha=alpha)
+        if self.n() != 2:
+            raise ValueError("only problems with 2 variables can be plotted")
+        A, b, c, x = self.Abcx()
+        if self.base_ring() is not QQ:
+            # Either we use QQ or crash
+            A = A.n().change_ring(QQ)
+            b = b.n().change_ring(QQ)
+        F = self.feasible_set()
+        xmin, xmax, ymin, ymax = self.get_plot_bounding_box(
+            F, b, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+        pad = max(xmax - xmin, ymax - ymin) / 20
+        ieqs = [(xmax, -1, 0), (- xmin, 1, 0),
+                (ymax, 0, -1), (- ymin, 0, 1)]
+        box = Polyhedron(ieqs=ieqs)
+        F = box.intersection(F)
+        result = Graphics()
+        colors = rainbow(self.m() + 2)
+        number_of_inequalities = self.m()
+        if number_of_cuts > number_of_inequalities:
+            raise ValueError("number of cuts must less than number of ineqalities")
+        number_of_constraints = number_of_inequalities - number_of_cuts
+        list_of_number = [int(i+1) for i in range(number_of_inequalities)]
+
+        # Plot the contraints or cuts one by one
+        for i, Ai, ri, bi, color, in zip(list_of_number, A.rows(),
+                                         self.constraint_types(),
+                                         b, colors[:-2],):
+            # Contraints are the first few number of constraints
+            # inequalities of the problem
+            if i <= number_of_constraints:
+                plot_constraint = self.plot_constraint_or_cut(
+                    Ai, bi, ri, color, box, x, alpha=alpha, pad=pad, ith_cut=None
+                    )
+                if plot_constraint:
+                    result += plot_constraint
+            # Cuts are the rest of the inequalities of the problem
+            else:
+                plot_cut = self.plot_constraint_or_cut(
+                    Ai, bi, ri, color, box, x, alpha=alpha, pad=None,
+                    ith_cut=i-number_of_constraints
+                    )
+                if plot_cut:
+                    result += plot_cut
+
+        # Same for variables, but no legend
+        result += self.plot_variables(F, x, box, colors, pad, alpha)
+
+        if F.vertices():
+            result += F.render_solid(alpha=alpha, color="gray")
+            result += text("$F$", F.center(),
+                           fontsize=20, color="black", zorder=5)
+        result.set_axes_range(xmin, xmax, ymin, ymax)
+        result.axes_labels(["${}$".format(latex(xi)) for xi in x])
+        result.legend(True)
+        result.set_legend_options(fancybox=True, handlelength=1.5, loc=1,
+                                  shadow=True)
+        result._extra_kwds["aspect_ratio"] = 1
+        result.set_aspect_ratio(1)
+        return result
 
     def plot_lines(self, F, integer_variable):
         r"""
@@ -509,6 +672,67 @@ class InteractiveMILPProblem(SageObject):
                                 color='blue', size=22)
         return result
 
+    def plot_objective_growth_and_solution(self, FP, c,
+                                           xmin=None, xmax=None,
+                                           ymin=None, ymax=None):
+        r"""
+        Return a plot with the growth of the objective function and the
+        objective solution of the relaxation of ``self``. 
+
+        ..Note::
+
+            For more information, refer to the docstrings of :meth:`plot`
+        in :class:`InteractiveLPProblem`.
+
+        INPUT:
+
+        - ``FP`` -- the plot of the feasbiel set of ``self``
+
+        - ``c`` -- the objective value of ``self``
+
+        - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
+          not given, an attempt will be made to pick reasonable values
+
+        OUTPUT:
+
+        - a plot
+        """
+        b = self.b()
+        xmin, xmax, ymin, ymax = self.get_plot_bounding_box(
+            self.feasible_set(), b, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+        start = self.optimal_solution()
+        start = vector(QQ, start.n() if start is not None
+                       else [xmin + (xmax-xmin)/2, ymin + (ymax-ymin)/2])
+        length = min(xmax - xmin, ymax - ymin) / 5
+        end = start + (c * length / c.norm()).n().change_ring(QQ)
+        result = FP + point(start, color="black", size=50, zorder=10)
+        result += arrow(start, end, color="black", zorder=10)
+        ieqs = [(xmax, -1, 0), (- xmin, 1, 0),
+                (ymax, 0, -1), (- ymin, 0, 1)]
+        box = Polyhedron(ieqs=ieqs)
+        d = vector([c[1], -c[0]])
+        for i in range(-10, 11):
+            level = Polyhedron(vertices=[start + i*(end-start)], lines=[d])
+            level = box.intersection(level)
+            if level.vertices():
+                if i == 0 and self.is_bounded():
+                    result += line(level.vertices(), color="black",
+                                   thickness=2)
+                else:
+                    result += line(level.vertices(), color="black",
+                                   linestyle="--")
+        result.set_axes_range(xmin, xmax, ymin, ymax)
+        result.axes_labels(FP.axes_labels())
+        return result
+
+    def plot_relaxation(self, *args, **kwds):
+        r"""
+        Return a plot for solving the relaxation of ``self`` graphically.
+
+        See :meth:`plot` in :class:`InteractiveLPProblem` for documentation. 
+        """
+        return self.relaxation().plot(*args, **kwds)
+
     def plot_variables(self, F, x, box, colors, pad, alpha):
         r"""
         Return a plot of the decision variables of ``self``
@@ -541,7 +765,7 @@ class InteractiveMILPProblem(SageObject):
         # we will either plot integer grids or lines, but not a half-plane
         # which will be either case 2 or case 3
         if not integer_variables.intersection(set(x)):
-            for ni, ri, color in zip((QQ**2).gens(), self._variable_types,
+            for ni, ri, color in zip((QQ**2).gens(), self.variable_types(),
                                      colors[-2:]):
                 border = box.intersection(Polyhedron(eqns=[[0] + list(ni)]))
                 if not border.vertices():
@@ -606,6 +830,14 @@ class InteractiveMILPProblem(SageObject):
             True
         """
         return self._relaxation
+
+    # Aliases for the standard notation
+    A = constraint_coefficients
+    b = constant_terms
+    c = objective_coefficients
+    x = decision_variables
+    m = n_constraints
+    n = n_variables
 
 class InteractiveMILPProblemStandardForm(SageObject):
     def __init__(self, A=None, b=None, c=None, 
