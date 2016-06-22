@@ -12,7 +12,10 @@ class InteractiveMILPProblem(SageObject):
                  is_primal=True, objective_constant_term=0, 
                  integer_variables=False):
         if relaxation:
-            self._relaxation = relaxation
+            if not isinstance(relaxation, InteractiveLPProblem):
+                raise ValueError("relaxation should be an instance of InteractiveLPProblem")
+            else:
+                self._relaxation = relaxation
         else:
             self._relaxation = InteractiveLPProblem(A=A, b=b, c=c, x="x",
                                 constraint_type=constraint_type, 
@@ -839,7 +842,7 @@ class InteractiveMILPProblem(SageObject):
     m = n_constraints
     n = n_variables
 
-class InteractiveMILPProblemStandardForm(SageObject):
+class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
     def __init__(self, A=None, b=None, c=None, 
                  relaxation=None,
                  x="x", problem_type="max",
@@ -847,7 +850,10 @@ class InteractiveMILPProblemStandardForm(SageObject):
                  base_ring=None, is_primal=True, objective_name=None,
                  objective_constant_term=0, integer_variables=False):
         if relaxation:
-            self._relaxation = relaxation
+            if not isinstance(relaxation, InteractiveLPProblemStandardForm):
+                raise ValueError("relaxation should be an instance of InteractiveLPProblemStandardForm")
+            else:
+                self._relaxation = relaxation
         else:
             self._relaxation = InteractiveLPProblemStandardForm(
                                 A=A, b=b, c=c, x=x, 
@@ -947,7 +953,7 @@ class InteractiveMILPProblemStandardForm(SageObject):
             ...
             ValueError: A and coefficients have incompatible dimensions
         """
-        new_relaxation = add_constraint(coefficients, new_b,
+        new_relaxation = self.relaxation().add_constraint(coefficients, new_b,
                                         new_slack_variable=new_slack_variable)
         integer_variables = self.integer_variables()
         if integer_slack:
@@ -977,6 +983,34 @@ class InteractiveMILPProblemStandardForm(SageObject):
         slack_variables = self.slack_variables()
         all_variables = list(decision_variables) + list(slack_variables)
         return set(all_variables)
+
+    def coordinate_ring(self):
+        r"""
+        Return the coordinate ring of the relaxation of ``self``.
+
+        See :meth:`coordinate_ring` in :class:`InteractiveLPProblemStandardForm` for documentation. 
+        """
+        return self.relaxation().coordinate_ring()
+
+    def final_dictionary(self):
+        r"""
+        Return the final dictionary of the simplex method applied to 
+        the relaxation of ``self``.
+        
+        See :meth:`final_dictionary` in :class:`InteractiveLPProblemStandardForm`
+        for documentation. 
+        """
+        return self.relaxation().final_dictionary()
+
+    def final_revised_dictionary(self):
+        r"""
+        Return the final dictionary of the revised simplex method applied
+        to the relaxation of ``self``.
+
+        See :meth:`final_revised_dictionary` in :class:`InteractiveLPProblemStandardForm`
+        for documentation. 
+        """
+        return self.relaxation().final_revised_dictionary()
 
     def integer_variables(self):
         r"""
@@ -1059,6 +1093,15 @@ class InteractiveMILPProblemStandardForm(SageObject):
         """
         return self._integer_variables
 
+    def objective_name(self):
+        r"""
+        Return the objective name used in dictionaries for this problem.
+
+        See :meth:`objective_name` in :class:`InteractiveLPProblemStandardForm`
+        for documentation. 
+        """
+        return self.relaxation().objective_name()
+
     def relaxation(self):
         r"""
         Return the relaxation problem of ``self``
@@ -1078,3 +1121,30 @@ class InteractiveMILPProblemStandardForm(SageObject):
             True
         """
         return self._relaxation
+
+    def run_revised_simplex_method(self):
+        r"""
+        Apply the revised simplex method and return all steps.
+
+        See :meth:`run_revised_simplex_method` in :class:`InteractiveLPProblemStandardForm`
+        for documentation. 
+        """
+        return self.relaxation().run_revised_simplex_method()
+
+    def run_simplex_method(self):
+        r"""
+        Apply the simplex method and return all steps and intermediate states.
+
+        See :meth:`run_simplex_method` in :class:`InteractiveLPProblemStandardForm`
+        for documentation. 
+        """
+        return self.relaxation().run_simplex_method()
+
+    def slack_variables(self):
+        r"""
+        Return slack variables of ``self``.
+
+        See :meth:`slack_variables` in :class:`InteractiveLPProblemStandardForm`
+        for documentation. 
+        """
+        return self.relaxation().slack_variables()
