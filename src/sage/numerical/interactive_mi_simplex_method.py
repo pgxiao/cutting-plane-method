@@ -35,6 +35,34 @@ class InteractiveMILPProblem(SageObject):
 
     @classmethod
     def with_relaxation(cls, relaxation, integer_variables=False):
+        r"""
+        Construct a MILP problem by a relaxation and a set of integer variables.
+
+        INPUT:
+
+        - ``relaxation`` -- :class:`LP problem <InteractiveLPProblem>`
+
+        - ``integer_variables`` -- (default: False) either a boolean value
+          indicating if all the problem variables are integer or not, or a
+          set of strings giving some problem variables' names, where those
+          problem variables are integer
+
+        OUTPUT:
+
+        - an :class:`MILP problem <InteractiveMILPProblem>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1, 2], [3, 1, 7], [6, 4, 5])
+            sage: b = (1000, 1500, 2000)
+            sage: c = (10, 5, 1)
+            sage: P = InteractiveLPProblem(A, b, c, variable_type=">=")
+            sage: P1 = InteractiveMILPProblem.with_relaxation(P, integer_variables=True)
+            sage: P1
+            MILP problem (use typeset mode to see details)
+            sage: P == P1.relaxation()
+            True
+        """
         return cls(relaxation=relaxation, integer_variables=integer_variables)
 
     def __eq__(self, other):
@@ -462,7 +490,7 @@ class InteractiveMILPProblem(SageObject):
         EXAMPLES::
 
             sage: A = ([1, 1], [3, 1])
-            sage: b = (1000, 1500)
+            sage: b = (100, 150)
             sage: c = (10, 5)
             sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=", integer_variables={'x1'})
             sage: p = P.plot()
@@ -477,8 +505,8 @@ class InteractiveMILPProblem(SageObject):
 
         We check that zero objective can be dealt with::
 
-            sage: InteractiveLPProblem(A, b, (0, 0), variable_type=">=", integer_variable={'x1'}).plot()
-            Graphics object consisting of 8 graphics primitives
+            sage: InteractiveMILPProblem(A, b, (0, 0), variable_type=">=", integer_variables={'x1'}).plot()
+            Graphics object consisting of 57 graphics primitives
         """
         FP = self.plot_feasible_set(*args, **kwds)
         c = self.c().n().change_ring(QQ)
@@ -900,6 +928,34 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
                         
     @classmethod
     def with_relaxation(cls, relaxation, integer_variables=False):
+        r"""
+        Construct a MILP problem in standard form by a relaxation and a set of integer variables.
+
+        INPUT:
+
+        - ``relaxation`` -- an :class:`LP problem in standard form <InteractiveLPProblemStandardForm>`
+
+        - ``integer_variables`` -- (default: False) either a boolean value
+          indicating if all the problem variables are integer or not, or a
+          set of strings giving some problem variables' names, where those
+          problem variables are integer
+
+        OUTPUT:
+
+        - an :class:`MILP problem in standard form <InteractiveMILPProblemStandardForm>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1, 2], [3, 1, 7], [6, 4, 5])
+            sage: b = (1000, 1500, 2000)
+            sage: c = (10, 5, 1)
+            sage: P = InteractiveLPProblemStandardForm(A, b, c)
+            sage: P1 = InteractiveMILPProblemStandardForm.with_relaxation(P, integer_variables=True)
+            sage: P1
+            MILP problem (use typeset mode to see details)
+            sage: P == P1.relaxation()
+            True
+        """
         return cls(relaxation=relaxation, integer_variables=integer_variables)
 
     def add_constraint(self, coefficients, new_b, new_slack_variable=None, integer_slack=False):
