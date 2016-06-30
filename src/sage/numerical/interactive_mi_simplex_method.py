@@ -958,6 +958,127 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         """
         return cls(relaxation=relaxation, integer_variables=integer_variables)
 
+    def add_a_cut(self, dictionary, integer_variables,
+                  separator=None,
+                  basic_variable=None, slack_variable=None):
+        r"""
+        Return the dictionary by adding a cut.
+
+        INPUT:
+
+        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
+
+        - ``integer_variables`` -- a set of integer variables for the dictionary
+
+        - ``separator``-- (default: None)
+          a string indicating the cut generating function separator
+
+        - ``basic_variable`` -- (default: None) a string specifying
+          the basic variable that will provide the source row for the cut
+
+        - ``slack_variable`` -- (default: None) a string giving
+          the name of the slack_variable. If the argument is none,
+          the new slack variable will be the `x_n` where n is
+          the next index of variable list.
+
+        OUTPUT:
+
+        - a :class:`dictionary <LPDictionary>`
+
+        EXAMPLES::
+
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....: integer_variables=True)
+            sage: D = P.final_dictionary()
+            sage: D1, I = P.add_a_cut(D, P.integer_variables(), 
+            ....: separator="gomory_fractional")
+            sage: D1.basic_variables()
+            (x2, x1, x5)
+            sage: D1.leave(5)
+            sage: D1.leaving_coefficients()
+            (-1/10, -4/5)
+            sage: D1.constant_terms()
+            (33/10, 13/10, -3/10)
+
+        :meth:`add_a_cut` refuses making a cut if the basic variable
+        of the source row is not an integer::
+
+            sage: b = (2/10, 17)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....:  integer_variables=True)
+            sage: P.integer_variables()
+            {x1, x2, x4}
+            sage: P.add_a_cut(P.final_dictionary(), P.integer_variables(),
+            ....: basic_variable="x3", separator="gomory_fractional")
+            Traceback (most recent call last):
+            ...
+            ValueError: chosen variable should be an integer variable
+
+
+        :meth:`add_a_cut` add_a_cut also refuses making a Gomory fractional
+        cut if a non-integer variable is among the non-basic variables 
+        with non-zero coefficients::
+
+            sage: A = ([1, 3, 5], [2, 6, 9], [6, 8, 3])
+            sage: b = (12/10, 23/10, 31/10)
+            sage: c = (3, 5, 7)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....: integer_variables= {'x1', 'x3'})
+            sage: D = P.final_dictionary()
+            sage: D.nonbasic_variables()
+            (x6, x2, x4)
+            sage: P.integer_variables()
+            {x1, x3}
+            sage: D.row_coefficients("x3")
+            (-1/27, 10/27, 2/9)
+
+        If the user chooses `x_3` to provide the source row,
+        :meth:`add_a_cut` will give an error, because the non-integer
+        variable `x_6` has a non-zero coefficient `1/27` on the source row::
+
+            sage: P.add_a_cut(P.final_dictionary(), P.integer_variables(),
+            ....: basic_variable='x3', separator="gomory_fractional")
+            Traceback (most recent call last):
+            ...
+            ValueError: this is not an eligible source row
+
+        We cannot add a Gomory fractional cut to this dictionary, because
+        the non-integer variable `x_6` has non-zero coefficient on each row::
+
+            sage: P.add_a_cut(P.final_dictionary(), P.integer_variables(),
+            ....: separator="gomory_fractional")
+            Traceback (most recent call last):
+            ...
+            ValueError: there does not exist an eligible source row
+
+        However, the previous condition is not necessary for Gomory
+        mixed integer cuts::
+
+            sage: D2, I = P.add_a_cut(P.final_dictionary(), P.integer_variables(),
+            ....: separator="gomory_mixed_integer")
+            sage: D2.basic_variables()
+            (x3, x5, x1, x7)
+        """
+        choose_variable, index = self.pick_eligible_source_row(
+            dictionary, integer_variables,
+            basic_variable=basic_variable,
+            separator=separator
+            )
+
+        if separator == "gomory_mixed_integer":
+            cut_coefficients, cut_constant = self.make_Gomory_mixed_integer_cut(
+                choose_variable, index)
+            return dictionary.add_row(cut_coefficients, cut_constant), self.integer_variables()
+
+        elif separator == "gomory_fractional":
+            cut_coefficients, cut_constant = self.make_Gomory_fractional_cut(
+                choose_variable, index)
+            D = dictionary.add_row(cut_coefficients, cut_constant)
+            return D, self.integer_variables().add(D.basic_variables()[-1])
+
     def add_constraint(self, coefficients, new_b, new_slack_variable=None, integer_slack=False):
         r"""
         Return a new MILP problem by adding a constraint to``self``.
