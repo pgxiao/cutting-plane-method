@@ -4,6 +4,45 @@ from sage.numerical.interactive_simplex_method import _latex_product
 from sage.plot.all import Graphics, arrow, line, point, rainbow, text
 from sage.rings.all import Infinity, PolynomialRing, QQ, RDF, ZZ
 
+def _form_thin_long_triangle(k):
+    r"""
+    Generate a thin long triangle.
+
+    .. NOTE::
+
+        :meth:`_form_thin_long_triangle` is for internal use. Generate a
+        thin long triangle with vertices `(0, 0)`, `(1, 0)`, and `(1/2, k)`
+        for some given integer `k`, and return a matrix `A`, and an vector
+        `b`, where the triangle is represented by a polytope defined by
+        `Ax <= b`. This thin long triangle is an example of a system with
+        large Chvatal rank.
+
+    INPUT:
+
+    - ``k``-- an integer indicating the y coordinate of the top vertex
+      for the triangle
+
+    OUTPUT:
+
+    - ``A`` -- a two by two matrix
+
+    - ``b`` -- a two-element vector
+
+    EXAMPLES::
+
+        sage: from sage.numerical.interactive_mi_simplex_method \
+        ....:     import _form_thin_long_triangle
+        sage: A, b, = _form_thin_long_triangle(4)
+        sage: A, b
+        (
+            [-8  1]
+            [ 8  1], (0, 8)
+            )
+    """
+    A = matrix([[-2 * k, 1], [2 * k, 1]])
+    b = vector([0, 2 * k])
+    return A, b
+
 class InteractiveMILPProblem(SageObject):
     def __init__(self, A=None, b=None, c=None,
                  relaxation=None, x="x",
@@ -1070,14 +1109,15 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
 
         if separator == "gomory_mixed_integer":
             cut_coefficients, cut_constant = self.make_Gomory_mixed_integer_cut(
-                choose_variable, index)
-            return dictionary.add_row(cut_coefficients, cut_constant), self.integer_variables()
+                dictionary, choose_variable, index)
+            return dictionary.add_row(cut_coefficients, cut_constant), integer_variables
 
         elif separator == "gomory_fractional":
             cut_coefficients, cut_constant = self.make_Gomory_fractional_cut(
-                choose_variable, index)
+                dictionary, choose_variable, index)
             D = dictionary.add_row(cut_coefficients, cut_constant)
-            return D, self.integer_variables().add(D.basic_variables()[-1])
+            integer_variables.add(D.basic_variables()[-1])
+            return D, integer_variables
 
     def add_constraint(self, coefficients, new_b, new_slack_variable=None, integer_slack=False):
         r"""
@@ -1279,11 +1319,13 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         """
         return self._integer_variables
 
-    def make_Gomory_fractional_cut(self, choose_variable, index):
+    def make_Gomory_fractional_cut(self, dictionary, choose_variable, index):
         r"""
         Return the coefficients and constant for a Gomory fractional cut
 
         INPUT:
+
+        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
 
         - ``choose_variable`` -- the basic variable for the chosen cut
 
@@ -1305,10 +1347,10 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             ....: integer_variables=True)
             sage: D = P.final_dictionary()
             sage: v = D.basic_variables()[0]
-            sage: P.make_Gomory_fractional_cut(v, 0)
+            sage: P.make_Gomory_fractional_cut(D, v, 0)
             ([-1/10, -4/5], -3/10)
         """
-        D = self.final_dictionary()
+        D = dictionary
         b = D.constant_terms()
         chosen_row = D.row_coefficients(choose_variable)
         cut_coefficients = [chosen_row[i].floor() -
@@ -1316,11 +1358,13 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         cut_constant = b[index].floor() - b[index]
         return cut_coefficients, cut_constant
 
-    def make_Gomory_mixed_integer_cut(self, choose_variable, index):
+    def make_Gomory_mixed_integer_cut(self, dictionary, choose_variable, index):
         r"""
         Return the coefficients and constant a Gomory fractional cut
 
         INPUT:
+
+        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
 
         - ``choose_variable`` -- the basic variable of the chosen cut
 
@@ -1342,10 +1386,10 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             ....: integer_variables=True)
             sage: D = P.final_dictionary()
             sage: v = D.basic_variables()[0]
-            sage: P.make_Gomory_mixed_integer_cut(v, 0)
+            sage: P.make_Gomory_mixed_integer_cut(D, v, 0)
             ([-1/3, -2/7], -1)
         """
-        D = self.final_dictionary()
+        D = dictionary
         N = D.nonbasic_variables()
         b = D.constant_terms()
         I = self.integer_variables()
@@ -1533,6 +1577,54 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             True
         """
         return self._relaxation
+
+    def run_cutting_plane_algorithm(self, separator=None):
+        r"""
+        Perform the cutting plane method to solve a MILP problem.
+
+        INPUT:
+
+        - ``separator``-- (default: None) a
+          string indicating the cut generating function separator
+
+        OUTPUT:
+
+        - a  number which is the total number of cuts need to solve a
+          ILP problem by Gomory fractional Cut
+
+        EXAMPLES::
+
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....: integer_variables=True)
+            sage: number_of_cuts = P.run_cutting_plane_algorithm(
+            ....: separator="gomory_fractional")
+            sage: number_of_cuts
+            5
+            sage: from sage.numerical.interactive_mi_simplex_method \
+            ....:     import _form_thin_long_triangle
+            sage: A1, b1 = _form_thin_long_triangle(4)
+            sage: c1 = (-1/27, 1/31)
+            sage: P1 = InteractiveMILPProblemStandardForm(A1, b1, c1,
+            ....: integer_variables=True)
+            sage: number_of_cuts = P1.run_cutting_plane_algorithm(
+            ....: separator="gomory_fractional")
+            sage: number_of_cuts
+            9
+        """
+        number_of_cuts = 0
+        D = self.final_dictionary()
+        I = self.integer_variables()
+        while True:
+            D, I = self.add_a_cut(D, I, separator=separator)
+            D.run_dual_simplex_method()
+            b = D.constant_terms()
+            number_of_cuts += 1
+            if all(i.is_integer() for i in b):
+                break
+        return number_of_cuts
 
     def run_revised_simplex_method(self):
         r"""
