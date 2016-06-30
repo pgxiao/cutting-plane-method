@@ -1068,6 +1068,15 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         """
         return self.relaxation().final_revised_dictionary()
 
+    def initial_dictionary(self):
+        r"""
+        Return the initial dictionary of the relaxation of ``self``.
+
+        See :meth:`intial_dictionary` in :class:`InteractiveLPProblemStandardForm`
+        for documentation. 
+        """
+        return self.relaxation().initial_dictionary()
+
     def integer_variables(self):
         r"""
         Return the set of integer decision variables of ``self``.
@@ -1149,6 +1158,123 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         """
         return self._integer_variables
 
+    def make_Gomory_fractional_cut(self, choose_variable, index):
+        r"""
+        Return the coefficients and constant for a Gomory fractional cut
+
+        INPUT:
+
+        - ``choose_variable`` -- the basic variable for the chosen cut
+
+        - ``index`` -- an integer indicating the choose_variable's index
+          in :meth:`constant_terms`
+
+        OUTPUT:
+
+        - ``cut_coefficients`` -- a list of coefficients for the cut
+
+        - ``cut_constant`` -- the constant for the cut
+
+        EXAMPLES::
+
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....: integer_variables=True)
+            sage: D = P.final_dictionary()
+            sage: v = D.basic_variables()[0]
+            sage: P.make_Gomory_fractional_cut(v, 0)
+            ([-1/10, -4/5], -3/10)
+        """
+        D = self.final_dictionary()
+        b = D.constant_terms()
+        chosen_row = D.row_coefficients(choose_variable)
+        cut_coefficients = [chosen_row[i].floor() -
+                            chosen_row[i] for i in range(self.n())]
+        cut_constant = b[index].floor() - b[index]
+        return cut_coefficients, cut_constant
+
+    def make_Gomory_mixed_integer_cut(self, choose_variable, index):
+        r"""
+        Return the coefficients and constant a Gomory fractional cut
+
+        INPUT:
+
+        - ``choose_variable`` -- the basic variable of the chosen cut
+
+        - ``index`` -- an integer indicating the choose_variable's index
+          in :meth:`constant_terms`
+
+        OUTPUT:
+
+        - ``cut_coefficients`` -- a list of coefficients for the cut
+
+        - ``cut_constant`` -- the constant for the cut
+
+        EXAMPLES::
+
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....: integer_variables=True)
+            sage: D = P.final_dictionary()
+            sage: v = D.basic_variables()[0]
+            sage: P.make_Gomory_mixed_integer_cut(v, 0)
+            ([-1/3, -2/7], -1)
+        """
+        D = self.final_dictionary()
+        N = D.nonbasic_variables()
+        b = D.constant_terms()
+        I = self.integer_variables()
+        C = self.continuous_variables()
+        n = self.n()
+
+        chosen_row = D.row_coefficients(choose_variable)
+        f = [chosen_row[i] - chosen_row[i].floor() for i in range(n)]
+        f_0 = b[index] - b[index].floor()
+
+        # Make dictionaries to update f and the ith row of matrix A
+        # with the right orders
+        # First in integer variables, then in continuous variables
+        variables = list(I) + list(C)
+        set_N = set(N)
+        N_in_IC_order = [item for item in variables if item in set_N]
+        f_dic = {item: coef for item, coef in zip(N, f)}
+        new_f = [f_dic[item] for item in N_in_IC_order]
+        chosen_row_dic = {item: coef for item, coef in zip(N, chosen_row)}
+        new_chosen_row = [chosen_row_dic[item] for item in N_in_IC_order]
+
+        cut_coefficients = [0] * n
+        j = 0
+        for item in I:
+            if item in set_N:
+                f_j = new_f[j]
+                if f_j <= f_0:
+                    cut_coefficients[j] -= f_j / f_0
+                else:
+                    cut_coefficients[j] -= (1 - f_j) / (1 - f_0)
+                j += 1
+        for item in C:
+            if item in set_N:
+                a_j = new_chosen_row[j]
+                if a_j >= 0:
+                    cut_coefficients[j] -= a_j / f_0
+                else:
+                    cut_coefficients[j] += a_j / (1 - f_0)
+                j += 1
+        cut_constant = -1
+
+        # Update cut_coefficients in the original order
+        # in self._nonbasic_variable
+        cut_coef_dic = {item: coef for item, coef
+                        in zip(N_in_IC_order, cut_coefficients)}
+        new_cut_coefficients = [cut_coef_dic[item] for item in list(N)
+                                if item in set(N_in_IC_order)]
+
+        return new_cut_coefficients, cut_constant
+
     def objective_name(self):
         r"""
         Return the objective name used in dictionaries for this problem.
@@ -1157,6 +1283,115 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         for documentation. 
         """
         return self.relaxation().objective_name()
+
+    def pick_eligible_source_row(self, dictionary, integer_variables,
+                                 separator=None,
+                                 basic_variable=None):
+        r"""
+        Pick an eligible source row for ``self``.
+
+        INPUT:
+
+        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
+
+        - ``integer_variables`` -- the set of integer variables
+
+        - ``separator`` -- (default: None)
+          a string indicating the cut generating function separator
+
+        - ``basic_variable`` -- (default: None) a string specifying
+          the basic variable that will provide the source row for the cut
+
+        OUTPUT:
+
+        - ``choose_variable`` -- the basic variable for the chosen cut
+
+        - ``index`` -- an integer indicating the choose_variable's index
+          in :meth:`constant_terms`
+
+        EXAMPLES::
+
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....: integer_variables=True)
+            sage: D = P.final_dictionary()
+            sage: D.basic_variables()
+            (x2, x1)
+            sage: P.integer_variables()
+            {x1, x2, x3, x4}
+            sage: D.constant_terms()
+            (33/10, 13/10)
+
+        None of the variables are continuous, and the constant term of `x_2` is
+        not an integer. Therefore, the row for x2 is an eligible source row::
+
+            sage: P.pick_eligible_source_row(D, P.integer_variables(),
+            ....: separator="gomory_fractional")
+            (x2, 0)
+
+        See :meth:`add_a_cut` for examples of ineligible source rows
+        """
+        B = dictionary.basic_variables()
+        list_B = list(B)
+        N = dictionary.nonbasic_variables()
+        b = dictionary.constant_terms()
+        n = len(N)
+        m = len(B)
+
+        def eligible_source_row(
+            choose_variable, bi=None,
+            separator=separator
+                                ):
+            if separator == "gomory_fractional":
+                chosen_row = dictionary.row_coefficients(choose_variable)
+                for i in range(n):
+                    if (N[i] not in integer_variables) and (chosen_row[i] != 0):
+                        return False
+            # If the choose_variable is integer and its constant is also
+            # integer, then there is no need for a cut
+            if (
+                (not (choose_variable in integer_variables))
+               or (bi is not None and bi.is_integer())):
+                    return False
+            return True
+        integer_basic_variables = integer_variables.intersection(set(B))
+        if all(b[list_B.index(variable)].is_integer()
+               for variable in integer_basic_variables):
+            raise ValueError(
+                "the solution of the integer basic variables are all integer, " \
+                "there is no way to add a cut")
+        if basic_variable is not None:
+            choose_variable = variable(dictionary.coordinate_ring(), basic_variable)
+            if choose_variable not in integer_variables:
+                raise ValueError(
+                    "chosen variable should be an integer variable"
+                    )
+            if not eligible_source_row(choose_variable, bi=None):
+                raise ValueError("this is not an eligible source row")
+            index = list_B.index(choose_variable)
+        else:
+            fraction_list = [abs(b[i] - b[i].floor() - 0.5) for i in range(m)]
+            variable_list = copy(list_B)
+            while True:
+                temp_index = fraction_list.index(min(fraction_list))
+                # Temp index will change as long as we remove the variable of
+                # the ineglible source row from the fraction list and the
+                # variable lsit
+                choose_variable = variable_list[temp_index]
+                index = list_B.index(choose_variable)
+                # Index wil not change, since we don't modify the
+                # list of basic variables
+                if eligible_source_row(choose_variable, b[index]):
+                    break
+                fraction_list.remove(min(fraction_list))
+                variable_list.remove(choose_variable)
+                if not fraction_list:
+                    raise ValueError(
+                        "there does not exist an eligible source row"
+                    )
+        return choose_variable, index
 
     def relaxation(self):
         r"""
