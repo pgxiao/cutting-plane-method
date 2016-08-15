@@ -639,12 +639,13 @@ class InteractiveMILPProblem(SageObject):
             sage: b = (1000, 1500)
             sage: c = (10, 5)
             sage: P = InteractiveLPProblem(A, b, c, ["C", "B"], variable_type=">=")
-            sage: p = P.plot_feasible_set()
+            sage: P1 = InteractiveMILPProblem.with_relaxation(P, integer_variables=True)
+            sage: p = P1.plot_feasible_set()
             sage: p.show()
 
         In this case the plot works better with the following axes ranges::
 
-            sage: p = P.plot_feasible_set(0, 1000, 0, 1500)
+            sage: p = P1.plot_feasible_set(0, 1000, 0, 1500)
             sage: p.show()
         """
         if self.n() != 2:
@@ -1682,3 +1683,9 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         for documentation. 
         """
         return self.relaxation().slack_variables()
+
+# FIXME: Current code is inefficient to deal with dictionaries.
+# In :meth:`run_cutting_plane_method`, one now has to check all the basic
+# variables are integer or not. 
+# It will be more efficient to check only the problem_variables.
+# A better dictionary interface would help.
