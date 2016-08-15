@@ -1578,7 +1578,8 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         """
         return self._relaxation
 
-    def run_cutting_plane_method(self, separator=None, revised=False):
+    def run_cutting_plane_method(self, separator=None, revised=False,
+                                plot=False, *args, **kwds):
         r"""
         Perform the cutting plane method to solve a MILP problem.
         Return the number of cuts needed to solve the problem and
@@ -1592,6 +1593,14 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         - ``revised`` -- (default: False) a flag indicating using
           normal dictionary or revised dictionary to run the
           cutting plane method.
+
+        - ``plot`` -- (default:False) a boolean value to decide whether
+          plot the cuts or not when using revised dictionary
+
+        - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
+          not given, an attempt will be made to pick reasonable values
+
+        - ``alpha`` -- (default: 0.2) determines how opaque are shadows
 
         OUTPUT:
 
@@ -1609,12 +1618,12 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             sage: c = (55/10, 21/10)
             sage: P = InteractiveMILPProblemStandardForm(A, b, c,
             ....: integer_variables=True)
-            sage: n, D = P.run_cutting_plane_method(
-            ....: separator="gomory_fractional")
+            sage: n, D = P.run_cutting_plane_method(separator="gomory_fractional", 
+            ....: revised=True, plot=True, xmin=-2, xmax=6, ymin=0, ymax=12)
             sage: n
             5
             sage: type(D)
-            <class 'sage.numerical.interactive_simplex_method.LPDictionary'>
+            <class 'sage.numerical.interactive_simplex_method.LPRevisedDictionary'>
             sage: from sage.numerical.interactive_mi_simplex_method \
             ....:     import _form_thin_long_triangle
             sage: A1, b1 = _form_thin_long_triangle(4)
@@ -1622,14 +1631,13 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             sage: P1 = InteractiveMILPProblemStandardForm(A1, b1, c1,
             ....: integer_variables=True)
             sage: n, D = P1.run_cutting_plane_method(
-            ....: separator="gomory_fractional", revised=True)
+            ....: separator="gomory_fractional")
             sage: n
             9
             sage: type(D)
-            <class 'sage.numerical.interactive_simplex_method.LPRevisedDictionary'>
-
+            <class 'sage.numerical.interactive_simplex_method.LPDictionary'>
         """
-        number_of_cuts = 0
+        n = 0
         if revised:
             D = self.final_revised_dictionary()
         else:
@@ -1639,10 +1647,14 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             D, I = self.add_a_cut(D, I, separator=separator)
             D.run_dual_simplex_method()
             b = D.constant_terms()
-            number_of_cuts += 1
+            n += 1
             if all(i.is_integer() for i in b):
                 break
-        return number_of_cuts, D
+        if plot and revised:
+            P = InteractiveMILPProblemStandardForm.with_relaxation(D._problem, integer_variables=I)
+            result = P.plot(number_of_cuts=n, *args, **kwds)
+            result.show()
+        return n, D
 
     def run_revised_simplex_method(self):
         r"""
