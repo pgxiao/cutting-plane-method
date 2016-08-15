@@ -10,7 +10,7 @@ lazy_import("sage.numerical.backends.generic_sdp_backend", ["default_sdp_solver"
 lazy_import("sage.numerical.interactive_simplex_method",
             ["InteractiveLPProblem", "InteractiveLPProblemStandardForm"])
 
-lazy_import("sage.numerical.interactive_mi_simplex_method",
+lazy_import("sage.numerical.interactive_milp_problem",
             ["InteractiveMILPProblem", "InteractiveMILPProblemStandardForm"])
 
 from sage.misc.superseded import deprecated_callable_import
