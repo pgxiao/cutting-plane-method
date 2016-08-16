@@ -1210,6 +1210,14 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         """
         return self.relaxation().coordinate_ring()
 
+    def dictionary(self, *x_B):
+        r"""
+        Construct a dictionary for the relaxation of ``self`` with given basic variables.
+
+        See :meth:`dictionary` in :class:`InteractiveLPProblemStandardForm` for documentation. 
+        """
+        return self.relaxation().revised_dictionary(*x_B).dictionary()
+
     def final_dictionary(self):
         r"""
         Return the final dictionary of the simplex method applied to 
@@ -1578,6 +1586,15 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             True
         """
         return self._relaxation
+
+    def revised_dictionary(self, *x_B):
+        r"""
+        Construct a revised dictionary for the relaxation of ``self``.
+    
+        See :meth:`revised_dictionary` in :class:`InteractiveLPProblemStandardForm`
+        for documentation. 
+        """
+        return self.relaxation().revised_dictionary(*x_B)
 
     def run_cutting_plane_method(self, separator=None, revised=False,
                                 plot=False, *args, **kwds):
