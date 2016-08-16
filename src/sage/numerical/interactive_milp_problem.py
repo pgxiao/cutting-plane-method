@@ -1644,12 +1644,18 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         else:
             D = self.final_dictionary()
         I = self.integer_variables()
+        # if all variables are continuous, there is no need for cutting plane method
+        if I == set():
+            return n, D
         while True:
             D, I = self.add_a_cut(D, I, separator=separator)
             D.run_dual_simplex_method()
-            b = D.constant_terms()
             n += 1
-            if all(i.is_integer() for i in b):
+            B = D.basic_variables()
+            I_basic = set(B).intersection(I)
+            I_indices = [tuple(B).index(v) for v in tuple(I_basic)]
+            I_constant = [D.constant_terms()[i] for i in I_indices]
+            if all(i.is_integer() for i in I_constant):
                 break
         if plot and revised:
             P = InteractiveMILPProblemStandardForm.with_relaxation(D._problem, integer_variables=I)
