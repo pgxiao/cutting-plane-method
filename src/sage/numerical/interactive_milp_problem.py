@@ -1002,11 +1002,12 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
                   separator=None,
                   basic_variable=None, slack_variable=None):
         r"""
-        Return the dictionary by adding a cut.
+        Return the dictionary and the set of integer variables by adding a cut.
 
         INPUT:
 
-        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
+        - ``dictionary`` -- a :class:`dictionary <LPDictionary>` or
+          a :class:`revised dictionary <LPRevisedDictionary>` 
 
         - ``integer_variables`` -- a set of integer variables for the dictionary
 
@@ -1018,12 +1019,15 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
 
         - ``slack_variable`` -- (default: None) a string giving
           the name of the slack_variable. If the argument is none,
-          the new slack variable will be the `x_n` where n is
+          the new slack variable will be named as `x_n` where n is
           the next index of variable list.
 
         OUTPUT:
 
-        - a :class:`dictionary <LPDictionary>`
+        - a :class:`dictionary <LPDictionary>` or
+          a :class:`revised dictionary <LPRevisedDictionary>`
+
+        - a set of integer variables
 
         EXAMPLES::
 
@@ -1033,18 +1037,32 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             sage: P = InteractiveMILPProblemStandardForm(A, b, c,
             ....: integer_variables=True)
             sage: D = P.final_dictionary()
-            sage: D1, I = P.add_a_cut(D, P.integer_variables(), 
+            sage: D1, I1 = P.add_a_cut(D, P.integer_variables(), 
             ....: separator="gomory_fractional")
-            sage: D1.basic_variables()
-            (x2, x1, x5)
-            sage: D1.leave(5)
+            sage: D1.leave(D1.basic_variables()[-1])
             sage: D1.leaving_coefficients()
             (-1/10, -4/5)
             sage: D1.constant_terms()
             (33/10, 13/10, -3/10)
 
-        :meth:`add_a_cut` refuses making a cut if the basic variable
-        of the source row is not an integer::
+        The new slack variable is integer if we use Gomory fractional cut::
+
+            sage: P.integer_variables()
+            {x1, x2, x3, x4}
+            sage: I1
+            {x1, x2, x3, x4, x5}
+
+        The new slack variable is continuous if we use Gomory mixed integer cut::
+            
+            sage: D2, I2 = P.add_a_cut(D, P.integer_variables(), 
+            ....: separator="gomory_mixed_integer")
+            sage: I2
+            {x1, x2, x3, x4}
+
+        Some cases of :meth:`add_a_cut` refusing making a cut by using
+        Gomory fractional cut::
+
+        1) the basic variable of the source row is not an integer::
 
             sage: b = (2/10, 17)
             sage: P = InteractiveMILPProblemStandardForm(A, b, c,
@@ -1058,9 +1076,8 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             ValueError: chosen variable should be an integer variable
 
 
-        :meth:`add_a_cut` add_a_cut also refuses making a Gomory fractional
-        cut if a non-integer variable is among the non-basic variables 
-        with non-zero coefficients::
+        2) a non-integer variable is among the nonbasic variables 
+        with non-zero coefficients on the source row::
 
             sage: A = ([1, 3, 5], [2, 6, 9], [6, 8, 3])
             sage: b = (12/10, 23/10, 31/10)
@@ -1070,8 +1087,6 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             sage: D = P.final_dictionary()
             sage: D.nonbasic_variables()
             (x6, x2, x4)
-            sage: P.integer_variables()
-            {x1, x3}
             sage: D.row_coefficients("x3")
             (-1/27, 10/27, 2/9)
 
@@ -1085,23 +1100,29 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             ...
             ValueError: this is not an eligible source row
 
-        We cannot add a Gomory fractional cut to this dictionary, because
+        In fact, we cannot add a Gomory fractional cut to this dictionary, because
         the non-integer variable `x_6` has non-zero coefficient on each row::
 
+            sage: D.enter(6)
+            sage: D.entering_coefficients()
+            (-1/27, -1/27, 5/27)
             sage: P.add_a_cut(P.final_dictionary(), P.integer_variables(),
             ....: separator="gomory_fractional")
             Traceback (most recent call last):
             ...
             ValueError: there does not exist an eligible source row
 
-        However, the previous condition is not necessary for Gomory
+        However, the previous restrictions are not held for Gomory
         mixed integer cuts::
 
-            sage: D2, I = P.add_a_cut(P.final_dictionary(), P.integer_variables(),
+            sage: D2, I2 = P.add_a_cut(P.final_dictionary(), P.integer_variables(),
             ....: separator="gomory_mixed_integer")
             sage: D2.basic_variables()
             (x3, x5, x1, x7)
         """
+        # make a copy, so the original set of integer variables
+        # will not be changed if we add any new integer variable
+        I = copy(integer_variables)
         choose_variable, index = self.pick_eligible_source_row(
             dictionary, integer_variables,
             basic_variable=basic_variable,
@@ -1111,14 +1132,15 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         if separator == "gomory_mixed_integer":
             cut_coefficients, cut_constant = self.make_Gomory_mixed_integer_cut(
                 dictionary, choose_variable, index)
-            return dictionary.add_row(cut_coefficients, cut_constant), integer_variables
+            return dictionary.add_row(cut_coefficients, cut_constant, slack_variable), I
 
         elif separator == "gomory_fractional":
             cut_coefficients, cut_constant = self.make_Gomory_fractional_cut(
                 dictionary, choose_variable, index)
-            D = dictionary.add_row(cut_coefficients, cut_constant)
-            integer_variables.add(D.basic_variables()[-1])
-            return D, integer_variables
+            D = dictionary.add_row(cut_coefficients, cut_constant, slack_variable)
+            # the new slack variable is integer while making a gomory fractional cut
+            I.add(D.basic_variables()[-1])
+            return D, I
 
     def add_constraint(self, coefficients, constant_term, slack_variable=None, integer_slack=False):
         r"""
