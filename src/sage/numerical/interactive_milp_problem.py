@@ -311,7 +311,30 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return ``x`` as a normalized solution of the relaxation of ``self``.
         
-        See :meth:`_solution` in :class:`InteractiveLPProblem` for documentation. 
+        INPUT:
+                
+        - ``x`` -- anything that can be interpreted as a solution of this
+          problem, e.g. a vector or a list of correct length or a single
+          element list with such a vector
+          
+        OUTPUT:
+        
+        - ``x`` as a vector
+        
+        EXAMPLES::
+        
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=")
+            sage: P._solution([100, 200])
+            (100, 200)
+            sage: P._solution([[100, 200]])
+            (100, 200)
+            sage: P._solution([1000])
+            Traceback (most recent call last):
+            ...
+            TypeError: given input is not a solution for this problem
         """
         return self.relaxation()._solution(x)
 
@@ -320,7 +343,25 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return an optimal solution and the optimal value of the relaxation of ``self``.
 
-        See :meth:`_solve` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - A pair consisting of a vector and a number. If relaxation of the problem
+          is infeasible, both components are ``None``. If the problem is
+          unbounded, the first component is ``None`` and the second is
+          `\pm \infty`.
+
+        This function uses "brute force" solution technique of evaluating the
+        objective at all vertices of the feasible set and taking into account
+        its rays and lines.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P._solve()
+            ((250, 750), 6250)
         """
         return self.relaxation()._solve()
 
@@ -328,7 +369,21 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return `A`, `b`, `c`, and `x` of the relaxation of ``self`` as a tuple.
 
-        See :meth:`Abcx` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a tuple
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.Abcx()
+            (
+            [1 1]
+            [3 1], (1000, 1500), (10, 5), (C, B)
+            )
         """
         return self.relaxation()._Abcx
 
@@ -408,7 +463,27 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return the base ring of the relaxation of ``self``.
 
-        See :meth:`base_ring` in :class:`InteractiveLPProblem` for documentation. 
+        .. NOTE::
+
+            The base ring of MILP problems is always a field.
+
+        OUTPUT:
+
+        - a ring
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.base_ring()
+            Rational Field
+
+            sage: c = (10, 5.)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.base_ring()
+            Real Field with 53 bits of precision
         """
         return self.relaxation().base_ring()
 
@@ -416,7 +491,20 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return constant terms of constraints of the relaxation of ``self``, i.e. `b`.
 
-        See :meth:`constant_terms` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a vector
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.constant_terms()
+            (1000, 1500)
+            sage: P.b()
+            (1000, 1500)
         """
         return self.relaxation().constant_terms()
 
@@ -424,7 +512,22 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return coefficients of constraints of the relaxation of ``self``, i.e. `A`.
 
-        See :meth:`constraint_coefficients` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a matrix
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.constraint_coefficients()
+            [1 1]
+            [3 1]
+            sage: P.A()
+            [1 1]
+            [3 1]
         """
         return self.relaxation().constraint_coefficients()
 
@@ -432,7 +535,19 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return a tuple listing the constraint types of all rows.
 
-        See :meth:`constraint_types` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a tuple of strings
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"],
+            ....:     variable_type=">=", constraint_type=["<=", "=="])
+            sage: P.constraint_types()
+            ('<=', '==')
         """
         return self.relaxation().constraint_types()
 
@@ -462,7 +577,20 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return decision variables of the relaxation of ``self``, i.e. `x`.
 
-        See :meth:`decision_variables` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a vector
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.decision_variables()
+            (C, B)
+            sage: P.x()
+            (C, B)
         """
         return self.relaxation().decision_variables()
 
@@ -471,7 +599,19 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return the feasible set of the relaxation of ``self``.
 
-        See :meth:`feasible_set` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a :mod:`Polyhedron <sage.geometry.polyhedron.constructor>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.feasible_set()
+            A 2-dimensional polyhedron in QQ^2
+            defined as the convex hull of 4 vertices
         """
         return self.relaxation().feasible_set()
 
@@ -527,7 +667,27 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Check if the relaxation of ``self`` is bounded.
 
-        See :meth:`is_bounded` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - ``True`` is the relaxation of ``self`` is bounded, ``False`` otherwise
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.is_bounded()
+            True
+            
+        Note that infeasible problems are always bounded::
+
+            sage: b = (-1000, 1500)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=")
+            sage: P.is_feasible()
+            False
+            sage: P.is_bounded()
+            True
         """
         return self.relaxation().is_bounded()
 
@@ -535,7 +695,35 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Check if the relaxation of ``self`` or given solution is feasible.
         
-        See :meth:`is_feasible` in :class:`InteractiveLPProblem` for documentation. 
+        INPUT:
+        
+        - (optional) anything that can be interpreted as a valid solution for
+          the relaxation of this problem, i.e. a sequence of values for all
+          decision variables
+
+        OUTPUT:
+
+        - ``True`` is the relaxation of this problem or given solution is
+          feasible, ``False`` otherwise
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=")
+            sage: P.is_feasible()
+            True
+            sage: P.is_feasible(100, 200)
+            True
+            sage: P.is_feasible(1000, 200)
+            False
+            sage: P.is_feasible([1000, 200])
+            False
+            sage: P.is_feasible(1000)
+            Traceback (most recent call last):
+            ...
+            TypeError: given input is not a solution for this problem
         """
         return self.relaxation().is_feasible(*x)
 
@@ -543,7 +731,18 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return `True` when the relaxation problem is of type ``"-max"`` or ``"-min"``.
 
-        See :meth:`is_negative` in :class:`InteractiveLPProblem` for documentation. 
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.is_negative()
+            False
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"],
+            ....:     variable_type=">=", problem_type="-min")
+            sage: P.is_negative()
+            True
         """
         return self.relaxation().is_negative()
 
@@ -551,7 +750,29 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Check if given solution of the relaxation is feasible.
         
-        See :meth:`is_optimal` in :class:`InteractiveLPProblem` for documentation. 
+        INPUT:
+        
+        - anything that can be interpreted as a valid solution for the relaxation
+          this problem, i.e. a sequence of values for all decision variables
+
+        OUTPUT:
+
+        - ``True`` is the given solution is optimal, ``False`` otherwise
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (15, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=")
+            sage: P.is_optimal(100, 200)
+            False
+            sage: P.is_optimal(500, 0)
+            True
+            sage: P.is_optimal(499, 3)
+            True
+            sage: P.is_optimal(501, -3)
+            False
         """
         return self.relaxation().is_optimal(*x)
         
@@ -559,7 +780,20 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return the number of constraints of the relaxation of ``self``, i.e. `m`.
 
-        See :meth:`n_constraints` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - an integer
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.n_constraints()
+            2
+            sage: P.m()
+            2
         """
         return self.relaxation().n_constraints()
 
@@ -567,23 +801,68 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return the number of decision variables of the relaxation of ``self``, i.e. `n`.
 
-        See :meth:`n_variables` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - an integer
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.n_variables()
+            2
+            sage: P.n()
+            2
         """
         return self.relaxation().n_variables()
 
     def objective_coefficients(self):
         r"""
-        Return coefficients of the objective of the relaxation of ``self``, i.e. `c`.
+        Return coefficients of the objective of ``self``, i.e. `c`.
 
-        See :meth:`objective_coefficients` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a vector
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.objective_coefficients()
+            (10, 5)
+            sage: P.c()
+            (10, 5) 
         """
         return self.relaxation().objective_coefficients()
         
     def objective_constant_term(self):
         r"""
-        Return the constant term of the objective of the relaxation of ``self``.
+        Return the constant term of the objective of ``self``.
 
-        See :meth:`objective_constant_term` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a number
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.objective_constant_term()
+            0
+            sage: P.optimal_value()
+            6250
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"],
+            ....:       variable_type=">=", objective_constant_term=-1250)
+            sage: P.objective_constant_term()
+            -1250
+            sage: P.optimal_value()
+            5000
         """
         return self.relaxation().objective_constant_term()
 
@@ -591,7 +870,24 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return the value of the objective on the given solution of the relaxation of ``self``.
         
-        See :meth:`objective_value` in :class:`InteractiveLPProblem` for documentation. 
+        INPUT:
+        
+        - anything that can be interpreted as a valid solution for the relaxation
+          this problem, i.e. a sequence of values for all decision variables
+
+        OUTPUT:
+
+        - the value of the objective on the given solution taking into account
+          :meth:`objective_constant_term` and :meth:`is_negative`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=")
+            sage: P.objective_value(100, 200)
+            2000
         """
         return self.relaxation().objective_value(*x)
 
@@ -599,7 +895,18 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return **an** optimal solution of the relaxation of ``self``.
 
-        See :meth:`optimal_solution` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a vector or ``None`` if there are no optimal solutions
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.optimal_solution()
+            (250, 750)
         """
         return self.relaxation().optimal_solution()
 
@@ -607,7 +914,19 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return the optimal value for the relaxation of ``self``.
 
-        See :meth:`optimal_value` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a number if the problem is bounded, `\pm \infty` if it is unbounded,
+          or ``None`` if it is infeasible
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.optimal_value()
+            6250
         """
         return self.relaxation().optimal_value()
 
@@ -643,7 +962,8 @@ class InteractiveMILPProblem(SageObject):
             sage: A = ([1, 1], [3, 1])
             sage: b = (100, 150)
             sage: c = (10, 5)
-            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=", integer_variables={'x1'})
+            sage: P = InteractiveMILPProblem(A, b, c, 
+            ....:     variable_type=">=", integer_variables={'x1'})
             sage: p = P.plot()
             sage: p.show()
 
@@ -656,7 +976,8 @@ class InteractiveMILPProblem(SageObject):
 
         We check that zero objective can be dealt with::
 
-            sage: InteractiveMILPProblem(A, b, (0, 0), variable_type=">=", integer_variables={'x1'}).plot()
+            sage: InteractiveMILPProblem(A, b, (0, 0),
+            ....: variable_type=">=", integer_variables={'x1'}).plot()
             Graphics object consisting of 57 graphics primitives
         """
         FP = self.plot_feasible_set(*args, **kwds)
@@ -751,7 +1072,7 @@ class InteractiveMILPProblem(SageObject):
             sage: b = (1000, 1500)
             sage: c = (10, 5)
             sage: P = InteractiveLPProblem(A, b, c, ["C", "B"], variable_type=">=")
-            sage: P1 = InteractiveMILPProblem.with_relaxation(P, integer_variables=True)
+            sage: P1 = InteractiveMILPProblem.with_relaxation(P, True)
             sage: p = P1.plot_feasible_set()
             sage: p.show()
 
@@ -912,7 +1233,47 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return a plot for solving the relaxation of ``self`` graphically.
 
-        See :meth:`plot` in :class:`InteractiveLPProblem` for documentation. 
+        INPUT:
+
+        - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
+          not given, an attempt will be made to pick reasonable values
+
+        - ``alpha`` -- (default: 0.2) determines how opaque are shadows
+
+        OUTPUT:
+
+        - a plot
+
+        This only works for problems with two decision variables. On the plot
+        the black arrow indicates the direction of growth of the objective. The
+        lines perpendicular to it are level curves of the objective. If there
+        are optimal solutions, the arrow originates in one of them and the
+        corresponding level curve is solid: all points of the feasible set
+        on it are optimal solutions. Otherwise the arrow is placed in the
+        center. If the problem is infeasible or the objective is zero, a plot
+        of the feasible set only is returned.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: p = P.plot_relaxation()
+            sage: p.show()
+
+        In this case the plot works better with the following axes ranges::
+
+            sage: p = P.plot_relaxation(0, 1000, 0, 1500)
+            sage: p.show()
+
+        TESTS:
+
+        We check that zero objective can be dealt with::
+
+            sage: InteractiveMILPProblem(A, b, (0, 0), ["C", "B"],
+            ....: variable_type=">=").plot_relaxation()
+            Graphics object consisting of 8 graphics primitives
         """
         return self.relaxation().plot(*args, **kwds)
 
@@ -981,7 +1342,24 @@ class InteractiveMILPProblem(SageObject):
         r"""
         Return the problem type of the relaxation of ``self``.
 
-        See :meth:`problem_type` in :class:`InteractiveLPProblem` for documentation. 
+        Needs to be used together with ``is_negative``.
+
+        OUTPUT:
+
+        - a string, one of ``"max"``, ``"min"``.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
+            sage: P.problem_type()
+            'max'
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"],
+            ....:     variable_type=">=", problem_type="-min")
+            sage: P.problem_type()
+            'min'
         """
         return self.relaxation().problem_type()
         
@@ -990,7 +1368,18 @@ class InteractiveMILPProblem(SageObject):
         Return a tuple listing the variable types of all decision variables
         of the relaxation of ``self``.
 
-        See :meth:`variable_types` in :class:`InteractiveLPProblem` for documentation. 
+        OUTPUT:
+
+        - a tuple of strings
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=[">=", ""])
+            sage: P.variable_types()
+            ('>=', '')
         """
         return self.relaxation().variable_types()
 
