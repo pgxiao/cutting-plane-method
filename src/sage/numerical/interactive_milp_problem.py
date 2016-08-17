@@ -44,26 +44,137 @@ def _form_thin_long_triangle(k):
     return A, b
 
 class InteractiveMILPProblem(SageObject):
-    def __init__(self, A=None, b=None, c=None,
-                 relaxation=None, x="x",
+    r"""
+    Construct an MILP (Mixed Integer Linear Programming) problem.
+
+    This class supports MILP problems with "variables on the left" constraints.
+
+    INPUT:
+
+    - ``A`` -- a matrix of constraint coefficients
+
+    - ``b`` -- a vector of constraint constant terms
+
+    - ``c`` -- a vector of objective coefficients
+
+    - ``x`` -- (default: ``"x"``) a vector of decision variables or a
+      string giving the base name
+
+    - ``constraint_type`` -- (default: ``"<="``) a string specifying constraint
+      type(s): either ``"<="``, ``">="``, ``"=="``, or a list of them
+
+    - ``variable_type`` -- (default: ``""``) a string specifying variable
+      type(s): either ``">="``, ``"<="``, ``""`` (the empty string), or a
+      list of them, corresponding, respectively, to non-negative,
+      non-positive, and free variables
+
+    - ``problem_type`` -- (default: ``"max"``) a string specifying the
+      problem type: ``"max"``, ``"min"``, ``"-max"``, or ``"-min"``
+
+    - ``base_ring`` -- (default: the fraction field of a common ring for all
+      input coefficients) a field to which all input coefficients will be
+      converted
+
+    - ``is_primal`` -- (default: ``True``) whether this problem is primal or
+      dual: each problem is of course dual to its own dual, this flag is mostly
+      for internal use and affects default variable names only
+      
+    - ``objective_constant_term`` -- (default: 0) a constant term of the
+      objective
+
+    - ``relaxation`` -- (default: None) an :class:`LP problem <InteractiveLPProblem>`
+      as the relaxation of the problem
+
+    - ``integer_variables`` -- (default: False) either a boolean value
+      indicating if all the problem variables are integer or not, or a
+      set of strings giving some problem variables' names, where those
+      problem variables are integer
+    
+    EXAMPLES:
+
+    We will first construct the following problem directly:
+
+    .. MATH::
+
+        \begin{array}{l}
+        \begin{array}{lcrcrcl}
+         \max \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 10 C \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 5 B \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} \
+         \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} C \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} B \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1000 \
+         \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 3 C \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} B \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1500 \
+        \end{array} \\
+        C, B \geq 0
+        \B, C \in \mathbb{Z}
+        \end{array}
+
+    ::
+        sage: A = ([1, 1], [3, 1])
+        sage: b = (1000, 1500)
+        sage: c = (10, 5)
+        sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=",
+        ....:     integer_variables=True)
+
+    Same problem, but more explicitly::
+
+        sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], constraint_type="<=", 
+        ....:     variable_type=">=", integer_variables=True)
+
+    Even more explicitly::
+
+        sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], problem_type="max",
+        ....:     constraint_type=["<=", "<="], variable_type=[">=", ">="],
+        ....:     integer_variables=True)
+
+    Similar problem, but specifiying which decision variable is integer::
+
+        sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], problem_type="max",
+        ....:     constraint_type=["<=", "<="], variable_type=[">=", ">="],
+        ....:     integer_variables={'C'})
+
+    Using the last form you should be able to represent any MILP problem, as long
+    as all like terms are collected and in constraints variables and constants
+    are on different sides.
+
+    We will construct the same problem by calling :meth:`with_relaxation` 
+    in :class:`InteractiveMILPProblem`::
+
+        sage: R = InteractiveLPProblem(A, b, c, ["C", "B"], problem_type="max",
+        ....:     constraint_type=["<=", "<="], variable_type=[">=", ">="])
+        sage: P = InteractiveMILPProblem.with_relaxation(R, {'C'})
+
+    See :meth:`with_relaxation` in :class:`InteractiveMILPProblem` for more documentation. 
+    """
+    def __init__(self, A=None, b=None, c=None, x="x",
                  constraint_type="<=", variable_type="", 
                  problem_type="max", base_ring=None, 
                  is_primal=True, objective_constant_term=0, 
-                 integer_variables=False):
+                 relaxation=None, integer_variables=False):
+        r"""
+        See :class:`InteractiveMILPProblem` for documentation.
+
+        TESTS::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], constraint_type="<=", 
+            ....:     variable_type=">=", integer_variables=True)
+            sage: TestSuite(P).run()
+        """
         if relaxation:
             if not isinstance(relaxation, InteractiveLPProblem):
                 raise ValueError("relaxation should be an instance of InteractiveLPProblem")
             else:
                 self._relaxation = relaxation
         else:
-            self._relaxation = InteractiveLPProblem(A=A, b=b, c=c, x="x",
+            self._relaxation = InteractiveLPProblem(A=A, b=b, c=c, x=x,
                                 constraint_type=constraint_type, 
                                 variable_type=variable_type, 
                                 problem_type=problem_type, 
                                 base_ring=base_ring, 
                                 is_primal=is_primal, 
                                 objective_constant_term=objective_constant_term)
-        R = PolynomialRing(self._relaxation.base_ring(), list(self._relaxation.Abcx()[3]), order="neglex")
+        R = PolynomialRing(self._relaxation.base_ring(), 
+                            list(self._relaxation.Abcx()[3]), order="neglex")
         if integer_variables is False:
             self._integer_variables = set([])
         elif integer_variables is True:
@@ -96,7 +207,7 @@ class InteractiveMILPProblem(SageObject):
             sage: b = (1000, 1500, 2000)
             sage: c = (10, 5, 1)
             sage: P = InteractiveLPProblem(A, b, c, variable_type=">=")
-            sage: P1 = InteractiveMILPProblem.with_relaxation(P, integer_variables=True)
+            sage: P1 = InteractiveMILPProblem.with_relaxation(P, True)
             sage: P1
             MILP problem (use typeset mode to see details)
             sage: P == P1.relaxation()
