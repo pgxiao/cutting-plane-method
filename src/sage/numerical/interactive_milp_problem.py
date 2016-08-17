@@ -103,7 +103,7 @@ class InteractiveMILPProblem(SageObject):
          \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 3 C \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} B \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1500 \
         \end{array} \\
         C, B \geq 0
-        \B, C \in \mathbb{Z}
+        B, C \in \mathbb{Z}
         \end{array}
 
     ::
@@ -143,6 +143,7 @@ class InteractiveMILPProblem(SageObject):
 
     See :meth:`with_relaxation` in :class:`InteractiveMILPProblem` for more documentation. 
     """
+
     def __init__(self, A=None, b=None, c=None, x="x",
                  constraint_type="<=", variable_type="", 
                  problem_type="max", base_ring=None, 
@@ -1022,12 +1023,116 @@ class InteractiveMILPProblem(SageObject):
     n = n_variables
 
 class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
-    def __init__(self, A=None, b=None, c=None, 
-                 relaxation=None,
-                 x="x", problem_type="max",
-                 slack_variables=None, auxiliary_variable=None,
-                 base_ring=None, is_primal=True, objective_name=None,
-                 objective_constant_term=0, integer_variables=False):
+    r"""
+    Construct an MILP (Mixed Integer Linear Programming) problem in standard form.
+
+    The used standard form is:
+
+    .. MATH::
+
+        \begin{array}{l}
+        \begin{array}{lcrcrcl}
+         \max \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 10 x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 5 x_{2} \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} \
+         \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} x_{2} \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1000 \
+         \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 3 x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} x_{2} \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1500 \
+         \end{array} \\
+        x_{1}, x_{2} \geq 0
+        x_{2}, x_{1}, x_{4}, x_{3} \in \mathbb{Z}
+        \end{array}
+
+    INPUT:
+
+    - ``A`` -- a matrix of constraint coefficients
+
+    - ``b`` -- a vector of constraint constant terms
+
+    - ``c`` -- a vector of objective coefficients
+
+    - ``x`` -- (default: ``"x"``) a vector of decision variables or a string
+      the base name giving
+
+    - ``problem_type`` -- (default: ``"max"``) a string specifying the
+      problem type: either ``"max"`` or ``"-max"``
+
+    - ``slack_variables`` -- (default: depends on :func:`style`)
+      a vector of slack variables or a string giving the base name
+
+    - ``auxiliary_variable`` -- (default: same as ``x`` parameter with adjoined
+      ``"0"`` if it was given as a string, otherwise ``"x0"``) the auxiliary
+      name, expected to be the same as the first decision variable for
+      auxiliary problems
+
+    - ``base_ring`` -- (default: the fraction field of a common ring for all
+      input coefficients) a field to which all input coefficients will be
+      converted
+
+    - ``is_primal`` -- (default: ``True``) whether this problem is primal or
+      dual: each problem is of course dual to its own dual, this flag is mostly
+      for internal use and affects default variable names only
+      
+    - ``objective_name`` -- a string or a symbolic expression for the
+      objective used in dictionaries, default depends on :func:`style`
+
+    - ``objective_constant_term`` -- (default: 0) a constant term of the
+      objective
+
+    - ``relaxation`` -- (default: None) 
+      an :class:`LP problem in standard form <InteractiveLPProblemStandardForm>`
+      as the relaxation of the problem
+
+    - ``integer_variables`` -- (default: False) either a boolean value
+      indicating if all the problem variables are integer or not, or a
+      set of strings giving some problem variables' names, where those
+      problem variables are integer
+
+    EXAMPLES::
+
+    We will construct the following problem directly:
+
+        sage: A = ([1, 1], [3, 1])
+        sage: b = (1000, 1500)
+        sage: c = (10, 5)
+        sage: P = InteractiveMILPProblemStandardForm(A, b, c, integer_variables=True)
+
+    Unlike :class:`InteractiveMILPProblem`, this class does not allow you
+    to adjust types of constraints (they are always ``"<="``) and
+    variables (they are always ``">="``), and the problem type may only
+    be ``"max"`` or ``"-max"``. You may give custom names to slack and
+    auxiliary variables, but in most cases defaults should work::
+
+        sage: P.decision_variables()
+        (x1, x2)
+        sage: P.slack_variables()
+        (x3, x4)
+
+    We will construct the same problem by calling :meth:`with_relaxation` 
+    in :class:`InteractiveMILPProblemStandardForm`::
+
+        sage: R = InteractiveLPProblemStandardForm(A, b, c)
+        sage: P = InteractiveMILPProblem.with_relaxation(R, True)
+
+    See :meth:`with_relaxation` in :class:`InteractiveMILPProblemStandardForm`
+    for more documentation.
+    """
+
+    def __init__(self, A=None, b=None, c=None, x="x",
+                 problem_type="max", slack_variables=None,
+                 auxiliary_variable=None, base_ring=None,
+                 is_primal=True, objective_name=None,
+                 objective_constant_term=0, 
+                 relaxation=None, integer_variables=False):
+        r"""
+        See :class:`InteractiveMILPProblemStandardForm` for documentation.
+
+        TESTS::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....:     integer_variables=True)
+            sage: TestSuite(P).run()
+        """
         if relaxation:
             if not isinstance(relaxation, InteractiveLPProblemStandardForm):
                 raise ValueError("relaxation should be an instance of InteractiveLPProblemStandardForm")
@@ -1043,9 +1148,9 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
                                 is_primal=is_primal,
                                 objective_name=objective_name,
                                 objective_constant_term=objective_constant_term)
-        A = self._relaxation._Abcx[0]
-        b = self._relaxation._Abcx[1]
-        x = self._relaxation._Abcx[3]
+        A = self._relaxation.Abcx()[0]
+        b = self._relaxation.Abcx()[1]
+        x = self._relaxation.Abcx()[3]
         R = self._relaxation._R
         m = self._relaxation.m()
         n = self._relaxation.n()
@@ -1101,7 +1206,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             sage: b = (1000, 1500, 2000)
             sage: c = (10, 5, 1)
             sage: P = InteractiveLPProblemStandardForm(A, b, c)
-            sage: P1 = InteractiveMILPProblemStandardForm.with_relaxation(P, integer_variables=True)
+            sage: P1 = InteractiveMILPProblemStandardForm.with_relaxation(P, True)
             sage: P1
             MILP problem (use typeset mode to see details)
             sage: P == P1.relaxation()
