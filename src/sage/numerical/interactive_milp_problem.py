@@ -1362,7 +1362,111 @@ class InteractiveMILPProblem(SageObject):
             'min'
         """
         return self.relaxation().problem_type()
+
+    def standard_form(self, transformation=False, **kwds):
+        r"""
+        Construct the MILP problem in standard form equivalent to ``self``.
         
+        INPUT:
+        
+        - ``transformation`` -- (default: ``False``) if ``True``, a map
+          converting solutions of the problem in standard form to the original
+          one will be returned as well
+        
+        - you can pass (as keywords only) ``slack_variables``,
+          ``auxiliary_variable``,``objective_name`` to the constructor of
+          :class:`InteractiveMILPProblemStandardForm`
+
+        OUTPUT:
+
+        - an :class:`InteractiveMILPProblemStandardForm` by itself or a tuple
+          with variable transformation as the second component
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=["<=", ""],
+            ....:                            objective_constant_term=42,
+            ....:                            integer_variables=True)
+            sage: PSF, f = P.standard_form(True)
+            sage: f
+            Vector space morphism represented by the matrix:
+            [-1  0]
+            [ 0  1]
+            [ 0 -1]
+            Domain: Vector space of dimension 3 over Rational Field
+            Codomain: Vector space of dimension 2 over Rational Field
+            sage: PSF.optimal_solution()
+            (0, 1000, 0)
+            sage: P.optimal_solution()
+            (0, 1000)
+            sage: P.is_optimal(PSF.optimal_solution())
+            Traceback (most recent call last):
+            ...
+            TypeError: given input is not a solution for this problem
+            sage: P.is_optimal(f(PSF.optimal_solution()))
+            True
+            sage: PSF.optimal_value()
+            5042
+            sage: P.optimal_value()
+            5042
+            sage: P.integer_variables()
+            {x1, x2}
+            sage: PSF.integer_variables()
+            {x1_n, x2_p, x2_n, x4, x5}
+
+
+        TESTS:
+
+        Above also works for the equivalent minimization problem::
+
+            sage: c = (-10, -5)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=["<=", ""],
+            ....:                            objective_constant_term=-42,
+            ....:                            problem_type="min", 
+            ....:                            integer_variables=True)
+            sage: PSF, f = P.standard_form(True)
+            sage: PSF.optimal_solution()
+            (0, 1000, 0)
+            sage: P.optimal_solution()
+            (0, 1000)
+            sage: PSF.optimal_value()
+            -5042
+            sage: P.optimal_value()
+            -5042
+
+        Integer variables are passed to standard form problem::
+        
+            sage: A = ([1, 1, 5/2], [2, 3/4, 4], [3/5, 1, 6])
+            sage: b = (1000, 1500, 2000)
+            sage: c = (10, 5, 3)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=[">=", "<=", ""], 
+            ....:                            integer_variables=True)
+            sage: PSF, f = P.standard_form(True)
+            sage: P.integer_variables()
+            {x1, x2, x3}
+            sage: PSF.integer_variables()
+            {x1, x2_n, x3_p, x3_n}
+
+        """
+        if transformation:
+            (P, f) = self.relaxation().standard_form(transformation=transformation, **kwds)
+        else:   
+            P = self.relaxation().standard_form(transformation=transformation, **kwds)
+        # assign integer variables to standard form
+        I = self.integer_variables()
+        x = P.Abcx()[3]
+        newI = set()
+        for i in tuple(I):
+            for j in x:
+                # variables are named as "xj_p", "xj_n", or "xj" depending on variable type
+                if (str(i) == str(j)[:-2]) or (str(i) == str(j)):
+                    newI.add(j)
+        MIP = InteractiveMILPProblemStandardForm.with_relaxation(P, newI)
+        return (MIP, f) if transformation else MIP
+
     def variable_types(self):
         r"""
         Return a tuple listing the variable types of all decision variables
