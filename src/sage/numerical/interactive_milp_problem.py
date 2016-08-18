@@ -1829,11 +1829,98 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         all_variables = list(decision_variables) + list(slack_variables)
         return set(all_variables)
 
+    def auxiliary_problem(self, objective_name=None):
+        r"""
+        Construct the auxiliary problem for the relaxation of ``self``.
+        
+        INPUT:
+
+        - ``objective_name`` -- a string or a symbolic expression for the
+          objective used in dictionaries, default depends on :func:`style`
+
+        OUTPUT:
+
+        - an :class:`LP problem in standard form <InteractiveLPProblemStandardForm>`
+
+        The auxiliary problem with the auxiliary variable `x_0` is
+
+        .. MATH::
+
+            \begin{array}{l}
+            \max - x_0 \\
+            - x_0 + A_i x \leq b_i \text{ for all } i \\
+            x \geq 0
+            \end{array}\ .
+
+        Such problems are used when the :meth:`initial_dictionary` is
+        infeasible.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1], [-1, -1])
+            sage: b = (1000, 1500, -400)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: AP = P.auxiliary_problem()
+        """
+        return self.relaxation().auxiliary_problem(objective_name=objective_name)
+
+    def auxiliary_variable(self):
+        r"""
+        Return the auxiliary variable of ``self``.
+
+        Note that the auxiliary variable may or may not be among
+        :meth:`~InteractiveMILPProblem.decision_variables`.
+
+        OUTPUT:
+
+        - a variable of the :meth:`coordinate_ring` of ``self``
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1], [-1, -1])
+            sage: b = (1000, 1500, -400)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.auxiliary_variable()
+            x0
+            sage: P.decision_variables()
+            (x1, x2)
+            sage: AP = P.auxiliary_problem()
+            sage: AP.auxiliary_variable()
+            x0
+            sage: AP.decision_variables()
+            (x0, x1, x2)
+        """
+        return self.relaxation().auxiliary_variable()
+
     def coordinate_ring(self):
         r"""
         Return the coordinate ring of the relaxation of ``self``.
 
-        See :meth:`coordinate_ring` in :class:`InteractiveLPProblemStandardForm` for documentation. 
+        OUTPUT:
+
+        - a polynomial ring over the :meth:`~InteractiveMILPProblem.base_ring` of ``self`` in
+          the :meth:`auxiliary_variable`, :meth:`~InteractiveMILPProblem.decision_variables`,
+          and :meth:`slack_variables` with "neglex" order
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1], [-1, -1])
+            sage: b = (1000, 1500, -400)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.coordinate_ring()
+            Multivariate Polynomial Ring in x0, x1, x2, x3, x4, x5
+            over Rational Field
+            sage: P.base_ring()
+            Rational Field
+            sage: P.auxiliary_variable()
+            x0
+            sage: P.decision_variables()
+            (x1, x2)
+            sage: P.slack_variables()
+            (x3, x4, x5)
         """
         return self.relaxation().coordinate_ring()
 
@@ -1841,17 +1928,102 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         r"""
         Construct a dictionary for the relaxation of ``self`` with given basic variables.
 
-        See :meth:`dictionary` in :class:`InteractiveLPProblemStandardForm` for documentation. 
+        INPUT:
+
+        - basic variables for the dictionary to be constructed
+
+        OUTPUT:
+
+        - a :class:`dictionary <LPDictionary>`
+
+        .. NOTE::
+
+            This is a synonym for ``self.revised_dictionary(x_B).dictionary()``,
+            but basic variables are mandatory.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: D = P.dictionary("x1", "x2")
+            sage: D.basic_variables()
+            (x1, x2)
         """
         return self.relaxation().revised_dictionary(*x_B).dictionary()
+
+    def feasible_dictionary(self, auxiliary_dictionary):
+        r"""
+        Construct a feasible dictionary for the relaxation of ``self``.
+
+        INPUT:
+
+        - ``auxiliary_dictionary`` -- an optimal dictionary for the
+          :meth:`auxiliary_problem` of ``self`` with the optimal value `0` and
+          a non-basic auxiliary variable
+
+        OUTPUT:
+
+        - a feasible :class:`dictionary <LPDictionary>` for ``self``
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1], [-1, -1])
+            sage: b = (1000, 1500, -400)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: AP = P.auxiliary_problem()
+            sage: D = AP.initial_dictionary()
+            sage: D.enter(0)
+            sage: D.leave(5)
+            sage: D.update()
+            sage: D.enter(1)
+            sage: D.leave(0)
+            sage: D.update()
+            sage: D.is_optimal()
+            True
+            sage: D.objective_value()
+            0
+            sage: D.basic_solution()
+            (0, 400, 0)
+            sage: D = P.feasible_dictionary(D)
+            sage: D.is_optimal()
+            False
+            sage: D.is_feasible()
+            True
+            sage: D.objective_value()
+            4000
+            sage: D.basic_solution()
+            (400, 0)
+        """
+        return self.relaxation().feasible_dictionary(auxiliary_dictionary)
 
     def final_dictionary(self):
         r"""
         Return the final dictionary of the simplex method applied to 
         the relaxation of ``self``.
         
-        See :meth:`final_dictionary` in :class:`InteractiveLPProblemStandardForm`
-        for documentation. 
+        See :meth:`run_simplex_method` for the description of possibilities.
+
+        OUTPUT:
+
+        - a :class:`dictionary <LPDictionary>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: D = P.final_dictionary()
+            sage: D.is_optimal()
+            True
+
+        TESTS::
+
+            sage: P.final_dictionary() is P.final_dictionary()
+            False
         """
         return self.relaxation().final_dictionary()
 
@@ -1860,8 +2032,27 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         Return the final dictionary of the revised simplex method applied
         to the relaxation of ``self``.
 
-        See :meth:`final_revised_dictionary` in :class:`InteractiveLPProblemStandardForm`
-        for documentation. 
+        See :meth:`run_revised_simplex_method` for the description of
+        possibilities.
+
+        OUTPUT:
+
+        - a :class:`revised dictionary <LPRevisedDictionary>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: D = P.final_revised_dictionary()
+            sage: D.is_optimal()
+            True
+
+        TESTS::
+
+            sage: P.final_revised_dictionary() is P.final_revised_dictionary()
+            False 
         """
         return self.relaxation().final_revised_dictionary()
 
@@ -1869,10 +2060,51 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         r"""
         Return the initial dictionary of the relaxation of ``self``.
 
-        See :meth:`intial_dictionary` in :class:`InteractiveLPProblemStandardForm`
-        for documentation. 
+        The initial dictionary "defines" :meth:`slack_variables` in terms
+        of the :meth:`~InteractiveMILPProblem.decision_variables`, i.e.
+        it has slack variables as basic ones.
+
+        OUTPUT:
+
+        - a :class:`dictionary <LPDictionary>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: D = P.initial_dictionary()
         """
         return self.relaxation().initial_dictionary()
+
+    def inject_variables(self, scope=None, verbose=True):
+        r"""
+        Inject variables of ``self`` into ``scope``.
+
+        INPUT:
+
+        - ``scope`` -- namespace (default: global)
+
+        - ``verbose`` -- if ``True`` (default), names of injected variables
+          will be printed
+
+        OUTPUT:
+
+        - none
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.inject_variables()
+            Defining x0, x1, x2, x3, x4
+            sage: 3*x1 + x2
+            x2 + 3*x1
+        """
+        return self.relaxation().inject_variables(scope=scope, verbose=verbose)
 
     def integer_variables(self):
         r"""
@@ -2080,8 +2312,28 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         r"""
         Return the objective name used in dictionaries for this problem.
 
-        See :meth:`objective_name` in :class:`InteractiveLPProblemStandardForm`
-        for documentation. 
+        OUTPUT:
+        
+        - a symbolic expression
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1], [-1, -1])
+            sage: b = (1000, 1500, -400)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.objective_name()
+            z
+            sage: sage.numerical.interactive_simplex_method.style("Vanderbei")
+            'Vanderbei'
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.objective_name()
+            zeta
+            sage: sage.numerical.interactive_simplex_method.style("UAlberta")
+            'UAlberta'
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c, objective_name="custom")
+            sage: P.objective_name()
+            custom
         """
         return self.relaxation().objective_name()
 
@@ -2218,8 +2470,44 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         r"""
         Construct a revised dictionary for the relaxation of ``self``.
     
-        See :meth:`revised_dictionary` in :class:`InteractiveLPProblemStandardForm`
-        for documentation. 
+        INPUT:
+
+        - basic variables for the dictionary to be constructed; if not given,
+          :meth:`slack_variables` will be used, perhaps with the
+          :meth:`auxiliary_variable` to give a feasible dictionary
+
+        OUTPUT:
+
+        - a :class:`revised dictionary <LPRevisedDictionary>`
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: D = P.revised_dictionary("x1", "x2")
+            sage: D.basic_variables()
+            (x1, x2)
+
+        If basic variables are not given the initial dictionary is
+        constructed::
+
+            sage: P.revised_dictionary().basic_variables()
+            (x3, x4)
+            sage: P.initial_dictionary().basic_variables()
+            (x3, x4)
+
+        Unless it is infeasible, in which case a feasible dictionary for the
+        auxiliary problem is constructed::
+
+            sage: A = ([1, 1], [3, 1], [-1,-1])
+            sage: b = (1000, 1500, -400)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.initial_dictionary().is_feasible()
+            False
+            sage: P.revised_dictionary().basic_variables()
+            (x3, x4, x0)
         """
         return self.relaxation().revised_dictionary(*x_B)
 
@@ -2309,19 +2597,102 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
 
     def run_revised_simplex_method(self):
         r"""
-        Apply the revised simplex method and return all steps.
+        Apply the revised simplex method on the relaxation of ``self`` and return all steps.
 
-        See :meth:`run_revised_simplex_method` in :class:`InteractiveLPProblemStandardForm`
-        for documentation. 
+        OUTPUT:
+
+        - :class:`~sage.misc.html.HtmlFragment` with HTML/`\LaTeX` code of
+          all encountered dictionaries
+
+        .. NOTE::
+
+            You can access the :meth:`final_revised_dictionary`, which can be
+            one of the following:
+
+            - an optimal dictionary with the :meth:`auxiliary_variable` among
+              :meth:`~LPRevisedDictionary.basic_variables` and a non-zero
+              optimal value indicating
+              that ``self`` is infeasible;
+
+            - a non-optimal dictionary that has marked entering
+              variable for which there is no choice of the leaving variable,
+              indicating that ``self`` is unbounded;
+
+            - an optimal dictionary.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1], [-1, -1])
+            sage: b = (1000, 1500, -400)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.run_revised_simplex_method()
+            \begin{equation*}
+            ...
+            \end{equation*}
+            Entering: $x_{1}$. Leaving: $x_{0}$.
+            \begin{equation*}
+            ...
+            \end{equation*}
+            Entering: $x_{5}$. Leaving: $x_{4}$.
+            \begin{equation*}
+            ...
+            \end{equation*}
+            Entering: $x_{2}$. Leaving: $x_{3}$.
+            \begin{equation*}
+            ...
+            \end{equation*}
+            The optimal value: $6250$. An optimal solution: $\left(250,\,750\right)$. 
         """
         return self.relaxation().run_revised_simplex_method()
 
     def run_simplex_method(self):
         r"""
-        Apply the simplex method and return all steps and intermediate states.
+        Apply the simplex method on the relaxation of ``self`` and return
+        all steps and intermediate states.
 
-        See :meth:`run_simplex_method` in :class:`InteractiveLPProblemStandardForm`
-        for documentation. 
+        OUTPUT:
+
+        - :class:`~sage.misc.html.HtmlFragment` with HTML/`\LaTeX` code of
+          all encountered dictionaries
+
+        .. NOTE::
+
+            You can access the :meth:`final_dictionary`, which can be one
+            of the following:
+
+            - an optimal dictionary for the :meth:`auxiliary_problem` with a
+              non-zero optimal value indicating that ``self`` is infeasible;
+
+            - a non-optimal dictionary for ``self`` that has marked entering
+              variable for which there is no choice of the leaving variable,
+              indicating that ``self`` is unbounded;
+
+            - an optimal dictionary for ``self``.
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1], [-1, -1])
+            sage: b = (1000, 1500, -400)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.run_simplex_method()
+            \begin{equation*}
+            ...
+            \end{equation*}
+            The initial dictionary is infeasible, solving auxiliary problem.
+            ...
+            Entering: $x_{0}$. Leaving: $x_{5}$.
+            ...
+            Entering: $x_{1}$. Leaving: $x_{0}$.
+            ...
+            Back to the original problem.
+            ...
+            Entering: $x_{5}$. Leaving: $x_{4}$.
+            ...
+            Entering: $x_{2}$. Leaving: $x_{3}$.
+            ...
+            The optimal value: $6250$. An optimal solution: $\left(250,\,750\right)$. 
         """
         return self.relaxation().run_simplex_method()
 
@@ -2329,8 +2700,28 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         r"""
         Return slack variables of ``self``.
 
-        See :meth:`slack_variables` in :class:`InteractiveLPProblemStandardForm`
-        for documentation. 
+        Slack variables are differences between the constant terms and
+        left hand sides of the constraints.
+
+        If you want to give custom names to slack variables, you have to do so
+        during construction of the problem.
+
+        OUTPUT:
+
+        - a tuple
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.slack_variables()
+            (x3, x4)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c, ["C", "B"],
+            ....:     slack_variables=["L", "F"])
+            sage: P.slack_variables()
+            (L, F) 
         """
         return self.relaxation().slack_variables()
 
