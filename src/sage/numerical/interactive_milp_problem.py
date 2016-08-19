@@ -1,4 +1,5 @@
 from copy import copy
+from sage.misc.html import HtmlFragment
 from sage.numerical.interactive_simplex_method import *
 from sage.numerical.interactive_simplex_method import _latex_product
 from sage.plot.all import Graphics, arrow, line, point, rainbow, text
@@ -1438,7 +1439,7 @@ class InteractiveMILPProblem(SageObject):
             -5042
 
         Integer variables are passed to standard form problem::
-        
+
             sage: A = ([1, 1, 5/2], [2, 3/4, 4], [3/5, 1, 6])
             sage: b = (1000, 1500, 2000)
             sage: c = (10, 5, 3)
@@ -2648,6 +2649,9 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
           a :class:`revised dictionary <LPRevisedDictionary>`
           depends on the ``revised``
 
+        - :class:`~sage.misc.html.HtmlFragment` with HTML/`\LaTeX` code of
+          all encountered dictionaries        
+
         EXAMPLES::
 
             sage: A = ([-1, 1], [8, 2])
@@ -2655,19 +2659,54 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             sage: c = (55/10, 21/10)
             sage: P = InteractiveMILPProblemStandardForm(A, b, c,
             ....: integer_variables=True)
-            sage: n, D = P.run_cutting_plane_method(separator="gomory_fractional", 
+            sage: n, D, output = P.run_cutting_plane_method(separator="gomory_fractional", 
             ....: revised=True, plot=True, xmin=-2, xmax=6, ymin=0, ymax=12)
             sage: n
             5
             sage: type(D)
             <class 'sage.numerical.interactive_simplex_method.LPRevisedDictionary'>
+            sage: output
+            The original problem is:
+            \begin{equation*}
+            ...
+            \end{equation*}
+            Since $x_{2}, x_{1}, x_{4}, x_{3}$ are integer, we need to use cutting plane method to the final dictionary:\\
+            \begin{equation*}
+            ...
+            \end{equation*}
+            After adding cut 1,
+            the dictionary becomes infeasible:
+            \begin{equation*}
+            ...
+            \end{equation*}
+            Run dual simplex method to solve the infeasible dictionary.\\
+            The dictionary becomes:
+            \begin{equation*}
+            ...
+            \end{equation*}
+            Now we have integer variables: $x_{2}, x_{1}, x_{5}, x_{4}, x_{3}$ \\
+            Since some integer variables don't have integer solutions, we need to use cutting plane method again.\\
+            ...
+            After adding cut 5,
+            the dictionary becomes infeasible:
+            \begin{equation*}
+            ...
+            \end{equation*}
+            Run dual simplex method to solve the infeasible dictionary.\\
+            The dictionary becomes:
+            \begin{equation*}
+            ...
+            \end{equation*}
+            The dictionary now is feasible and optimal.\\
+            The optimal value: $\frac{59}{5}$. An optimal solution: $\left(1,\,3\right)$.
+
             sage: from sage.numerical.interactive_milp_problem \
             ....:     import _form_thin_long_triangle
             sage: A1, b1 = _form_thin_long_triangle(4)
             sage: c1 = (-1/27, 1/31)
             sage: P1 = InteractiveMILPProblemStandardForm(A1, b1, c1,
             ....: integer_variables=True)
-            sage: n, D = P1.run_cutting_plane_method(
+            sage: n, D, output = P1.run_cutting_plane_method(
             ....: separator="gomory_fractional")
             sage: n
             9
@@ -2675,29 +2714,63 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             <class 'sage.numerical.interactive_simplex_method.LPDictionary'>
         """
         n = 0
+        output = []
+        output.append("The original problem is:")
+        output.append(r"\begin{equation*}")
+        output.append(self._latex_())
+        output.append(r"\end{equation*}")
         if revised:
             D = self.final_revised_dictionary()
         else:
             D = self.final_dictionary()
+
         I = self.integer_variables()
-        # if all variables are continuous, there is no need for cutting plane method
         if I == set():
-            return n, D
+            output.append("All variables are continuous, "
+                          "there is no need for using cutting plane method" + r"\\")
+            return n, D, HtmlFragment("\n".join(output))
+        else:
+            output.append("Since " + r"${}$".format(", ".join(map(latex, I))) + " are integer, "
+                          "we need to use cutting plane method to the final dictionary:" + r"\\")
+            output.append(D._html_())
+
         while True:
             D, I = self.add_a_cut(D, I, separator=separator)
-            D.run_dual_simplex_method()
             n += 1
+            
+            output.append("After adding cut " + str(n) + ", ")
+            output.append("the dictionary becomes infeasible:")
+            output.append(D._html_())
+            output.append("Run dual simplex method to solve the infeasible dictionary." + r"\\")
+            
+            D.run_dual_simplex_method()
+            output.append("The dictionary becomes:")
+            output.append(D._html_())
+            
             B = D.basic_variables()
             I_basic = set(B).intersection(I)
             I_indices = [tuple(B).index(v) for v in tuple(I_basic)]
             I_constant = [D.constant_terms()[i] for i in I_indices]
             if all(i.is_integer() for i in I_constant):
                 break
+            if n > 0:
+                output.append("Now we have integer variables: "
+                              r"${}$".format(", ".join(map(latex, I))) +  r" \\")
+                output.append("Since some integer variables don't have integer solutions, "
+                              "we need to use cutting plane method again." + r"\\")
+
+        output.append("The dictionary now is feasible and optimal." + r"\\")
+        output.append(("The optimal value: ${}$. "
+                       "An optimal solution: ${}$.").format(
+                       latex(- D.objective_value() if self.is_negative() else D.objective_value()), 
+                       latex(D.basic_solution())))
+        # we only plot the final problem when we use revised dictionary
+        # since only revised dictionary knows the original problem variables
         if plot and revised:
             P = InteractiveMILPProblemStandardForm.with_relaxation(D._problem, integer_variables=I)
             result = P.plot(number_of_cuts=n, *args, **kwds)
             result.show()
-        return n, D
+        return n, D, HtmlFragment("\n".join(output))
 
     def run_revised_simplex_method(self):
         r"""
