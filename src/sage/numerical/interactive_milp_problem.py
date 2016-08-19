@@ -251,6 +251,33 @@ class InteractiveMILPProblem(SageObject):
                 self._relaxation == other._relaxation and
                 self._integer_variables == other._integer_variables)
 
+    def _get_plot_bounding_box(self, F, b,
+                              xmin=None, xmax=None, ymin=None, ymax=None):
+        r"""
+        Return the min and max for x and y of the bounding box for ``self``.
+
+        INPUT:
+
+        - ``F`` -- the feasible set of self
+        - ``b`` -- the constant terms of self
+        - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
+          not given, an attempt will be made to pick reasonable values
+
+        OUTPUT:
+
+        - four rational numbers
+        """
+        if ymax is None:
+            ymax = max(map(abs, b) + [v[1] for v in F.vertices()])
+        if ymin is None:
+            ymin = min([-ymax/4.0] + [v[1] for v in F.vertices()])
+        if xmax is None:
+            xmax = max([1.5*ymax] + [v[0] for v in F.vertices()])
+        if xmin is None:
+            xmin = min([-xmax/4.0] + [v[0] for v in F.vertices()])
+        xmin, xmax, ymin, ymax = map(QQ, [xmin, xmax, ymin, ymax])
+        return xmin, xmax, ymin, ymax
+
     def _latex_(self):
         r"""
         Return a LaTeX representation of ``self``.
@@ -289,6 +316,60 @@ class InteractiveMILPProblem(SageObject):
                                     r"\mathbb{R}")
         return lines[:-11] + r" \\" + integer_var + continuous_var + lines[-11:]
 
+    def _plot_constraint_or_cut(self, Ai, bi, ri, color, box, x, 
+                               alpha=0.2, pad=None, ith_cut=None):
+        r"""
+        Return a plot of the constraint or cut of ``self``.
+
+        INPUT:
+
+        - ``Ai`` -- the coefficients for the constraint or cut
+
+        - ``bi`` -- the constant for the constraint or cut
+
+        - ``ri`` -- a string indicating the type for the constraint or cut
+
+        - ``color`` -- a color
+
+        - ``box`` -- a bounding box for the plot
+
+        - ``x`` -- the decision variables of the problem
+
+        - ``alpha`` -- (default: 0.2) determines how opaque are shadows
+
+        - ``pad`` -- an integer
+
+        - ``ith_cut`` -- an integer indicating the order of the cut
+
+        OUTPUT:
+
+        - a plot
+        """
+        border = box.intersection(Polyhedron(eqns=[[-bi] + list(Ai)]))
+        vertices = border.vertices()
+        if not vertices:
+            return None
+        result = Graphics()
+        if not ith_cut:
+            label = r"${}$".format(_latex_product(Ai, x, " ", tail=[ri, bi]))
+            result += line(vertices, color=color, legend_label=label)
+            if ri == "<=":
+                ieqs = [[bi] + list(-Ai), [-bi+pad*Ai.norm().n()] + list(Ai)]
+            elif ri == ">=":
+                ieqs = [[-bi] + list(Ai), [bi+pad*Ai.norm().n()] + list(-Ai)]
+            else:
+                return None
+            ieqs = map(lambda ieq: map(QQ, ieq), ieqs)
+            halfplane = box.intersection(Polyhedron(ieqs=ieqs))
+            result += halfplane.render_solid(alpha=alpha, color=color)
+        else:
+            label = "cut" + str(ith_cut)
+            label = label + " " + r"${}$".format(
+                _latex_product(Ai, x, " ", tail=[ri, bi]))
+            result += line(vertices, color=color,
+                           legend_label=label, thickness=1.5)
+        return result
+        
     def _repr_(self):
         r"""
         Return a string representation of ``self``.
@@ -615,33 +696,6 @@ class InteractiveMILPProblem(SageObject):
             defined as the convex hull of 4 vertices
         """
         return self.relaxation().feasible_set()
-
-    def get_plot_bounding_box(self, F, b,
-                              xmin=None, xmax=None, ymin=None, ymax=None):
-        r"""
-        Return the min and max for x and y of the bounding box for ``self``.
-
-        INPUT:
-
-        - ``F`` -- the feasible set of self
-        - ``b`` -- the constant terms of self
-        - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
-          not given, an attempt will be made to pick reasonable values
-
-        OUTPUT:
-
-        - four rational numbers
-        """
-        if ymax is None:
-            ymax = max(map(abs, b) + [v[1] for v in F.vertices()])
-        if ymin is None:
-            ymin = min([-ymax/4.0] + [v[1] for v in F.vertices()])
-        if xmax is None:
-            xmax = max([1.5*ymax] + [v[0] for v in F.vertices()])
-        if xmin is None:
-            xmin = min([-xmax/4.0] + [v[0] for v in F.vertices()])
-        xmin, xmax, ymin, ymax = map(QQ, [xmin, xmax, ymin, ymax])
-        return xmin, xmax, ymin, ymax
 
     def integer_variables(self):
         r"""
@@ -989,60 +1043,6 @@ class InteractiveMILPProblem(SageObject):
             del kwds['number_of_cuts']
         return self.plot_objective_growth_and_solution(FP, c, *args, **kwds)
 
-    def plot_constraint_or_cut(self, Ai, bi, ri, color, box, x, 
-                               alpha=0.2, pad=None, ith_cut=None):
-        r"""
-        Return a plot of the constraint or cut of ``self``.
-
-        INPUT:
-
-        - ``Ai`` -- the coefficients for the constraint or cut
-
-        - ``bi`` -- the constant for the constraint or cut
-
-        - ``ri`` -- a string indicating the type for the constraint or cut
-
-        - ``color`` -- a color
-
-        - ``box`` -- a bounding box for the plot
-
-        - ``x`` -- the decision variables of the problem
-
-        - ``alpha`` -- (default: 0.2) determines how opaque are shadows
-
-        - ``pad`` -- an integer
-
-        - ``ith_cut`` -- an integer indicating the order of the cut
-
-        OUTPUT:
-
-        - a plot
-        """
-        border = box.intersection(Polyhedron(eqns=[[-bi] + list(Ai)]))
-        vertices = border.vertices()
-        if not vertices:
-            return None
-        result = Graphics()
-        if not ith_cut:
-            label = r"${}$".format(_latex_product(Ai, x, " ", tail=[ri, bi]))
-            result += line(vertices, color=color, legend_label=label)
-            if ri == "<=":
-                ieqs = [[bi] + list(-Ai), [-bi+pad*Ai.norm().n()] + list(Ai)]
-            elif ri == ">=":
-                ieqs = [[-bi] + list(Ai), [bi+pad*Ai.norm().n()] + list(-Ai)]
-            else:
-                return None
-            ieqs = map(lambda ieq: map(QQ, ieq), ieqs)
-            halfplane = box.intersection(Polyhedron(ieqs=ieqs))
-            result += halfplane.render_solid(alpha=alpha, color=color)
-        else:
-            label = "cut" + str(ith_cut)
-            label = label + " " + r"${}$".format(
-                _latex_product(Ai, x, " ", tail=[ri, bi]))
-            result += line(vertices, color=color,
-                           legend_label=label, thickness=1.5)
-        return result
-
     def plot_feasible_set(self, xmin=None, xmax=None, ymin=None, ymax=None,
                           alpha=0.2, number_of_cuts=0):
         r"""
@@ -1090,7 +1090,7 @@ class InteractiveMILPProblem(SageObject):
             A = A.n().change_ring(QQ)
             b = b.n().change_ring(QQ)
         F = self.feasible_set()
-        xmin, xmax, ymin, ymax = self.get_plot_bounding_box(
+        xmin, xmax, ymin, ymax = self._get_plot_bounding_box(
             F, b, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
         pad = max(xmax - xmin, ymax - ymin) / 20
         ieqs = [(xmax, -1, 0), (- xmin, 1, 0),
@@ -1112,14 +1112,14 @@ class InteractiveMILPProblem(SageObject):
             # Contraints are the first few number of constraints
             # inequalities of the problem
             if i <= number_of_constraints:
-                plot_constraint = self.plot_constraint_or_cut(
+                plot_constraint = self._plot_constraint_or_cut(
                     Ai, bi, ri, color, box, x, alpha=alpha, pad=pad, ith_cut=None
                     )
                 if plot_constraint:
                     result += plot_constraint
             # Cuts are the rest of the inequalities of the problem
             else:
-                plot_cut = self.plot_constraint_or_cut(
+                plot_cut = self._plot_constraint_or_cut(
                     Ai, bi, ri, color, box, x, alpha=alpha, pad=None,
                     ith_cut=i-number_of_constraints
                     )
@@ -1158,7 +1158,7 @@ class InteractiveMILPProblem(SageObject):
         - a plot
         """
         b = self.b()
-        xmin, xmax, ymin, ymax = self.get_plot_bounding_box(
+        xmin, xmax, ymin, ymax = self._get_plot_bounding_box(
             F, b, xmin=None, xmax=None, ymin=None, ymax=None
             )
         result = Graphics()
@@ -1203,7 +1203,7 @@ class InteractiveMILPProblem(SageObject):
         - a plot
         """
         b = self.b()
-        xmin, xmax, ymin, ymax = self.get_plot_bounding_box(
+        xmin, xmax, ymin, ymax = self._get_plot_bounding_box(
             self.feasible_set(), b, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
         start = self.optimal_solution()
         start = vector(QQ, start.n() if start is not None
@@ -1507,7 +1507,7 @@ class InteractiveMILPProblem(SageObject):
             ('>=', '')
         """
         return self.relaxation().variable_types()
-        
+
     # Aliases for the standard notation
     A = constraint_coefficients
     b = constant_terms
@@ -1708,6 +1708,127 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         """
         return cls(relaxation=relaxation, integer_variables=integer_variables)
 
+    def _make_Gomory_fractional_cut(self, dictionary, choose_variable, index):
+        r"""
+        Return the coefficients and constant for a Gomory fractional cut
+
+        INPUT:
+
+        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
+
+        - ``choose_variable`` -- the basic variable for the chosen cut
+
+        - ``index`` -- an integer indicating the choose_variable's index
+          in :meth:`constant_terms`
+
+        OUTPUT:
+
+        - ``cut_coefficients`` -- a list of coefficients for the cut
+
+        - ``cut_constant`` -- the constant for the cut
+
+        EXAMPLES::
+
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....: integer_variables=True)
+            sage: D = P.final_dictionary()
+            sage: v = D.basic_variables()[0]
+            sage: P._make_Gomory_fractional_cut(D, v, 0)
+            ([-1/10, -4/5], -3/10)
+        """
+        D = dictionary
+        b = D.constant_terms()
+        chosen_row = D.row_coefficients(choose_variable)
+        cut_coefficients = [chosen_row[i].floor() -
+                            chosen_row[i] for i in range(self.n())]
+        cut_constant = b[index].floor() - b[index]
+        return cut_coefficients, cut_constant
+
+    def _make_Gomory_mixed_integer_cut(self, dictionary, choose_variable, index):
+        r"""
+        Return the coefficients and constant a Gomory fractional cut
+
+        INPUT:
+
+        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
+
+        - ``choose_variable`` -- the basic variable of the chosen cut
+
+        - ``index`` -- an integer indicating the choose_variable's index
+          in :meth:`constant_terms`
+
+        OUTPUT:
+
+        - ``cut_coefficients`` -- a list of coefficients for the cut
+
+        - ``cut_constant`` -- the constant for the cut
+
+        EXAMPLES::
+
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
+            ....: integer_variables=True)
+            sage: D = P.final_dictionary()
+            sage: v = D.basic_variables()[0]
+            sage: P._make_Gomory_mixed_integer_cut(D, v, 0)
+            ([-1/3, -2/7], -1)
+        """
+        D = dictionary
+        N = D.nonbasic_variables()
+        b = D.constant_terms()
+        I = self.integer_variables()
+        C = self.continuous_variables()
+        n = self.n()
+
+        chosen_row = D.row_coefficients(choose_variable)
+        f = [chosen_row[i] - chosen_row[i].floor() for i in range(n)]
+        f_0 = b[index] - b[index].floor()
+
+        # Make dictionaries to update f and the ith row of matrix A
+        # with the right orders
+        # First in integer variables, then in continuous variables
+        variables = list(I) + list(C)
+        set_N = set(N)
+        N_in_IC_order = [item for item in variables if item in set_N]
+        f_dic = {item: coef for item, coef in zip(N, f)}
+        new_f = [f_dic[item] for item in N_in_IC_order]
+        chosen_row_dic = {item: coef for item, coef in zip(N, chosen_row)}
+        new_chosen_row = [chosen_row_dic[item] for item in N_in_IC_order]
+
+        cut_coefficients = [0] * n
+        j = 0
+        for item in I:
+            if item in set_N:
+                f_j = new_f[j]
+                if f_j <= f_0:
+                    cut_coefficients[j] -= f_j / f_0
+                else:
+                    cut_coefficients[j] -= (1 - f_j) / (1 - f_0)
+                j += 1
+        for item in C:
+            if item in set_N:
+                a_j = new_chosen_row[j]
+                if a_j >= 0:
+                    cut_coefficients[j] -= a_j / f_0
+                else:
+                    cut_coefficients[j] += a_j / (1 - f_0)
+                j += 1
+        cut_constant = -1
+
+        # Update cut_coefficients in the original order
+        # in self._nonbasic_variable
+        cut_coef_dic = {item: coef for item, coef
+                        in zip(N_in_IC_order, cut_coefficients)}
+        new_cut_coefficients = [cut_coef_dic[item] for item in list(N)
+                                if item in set(N_in_IC_order)]
+
+        return new_cut_coefficients, cut_constant
+
     def add_a_cut(self, dictionary, integer_variables,
                   separator=None,
                   basic_variable=None, slack_variable=None):
@@ -1840,12 +1961,12 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             )
 
         if separator == "gomory_mixed_integer":
-            cut_coefficients, cut_constant = self.make_Gomory_mixed_integer_cut(
+            cut_coefficients, cut_constant = self._make_Gomory_mixed_integer_cut(
                 dictionary, choose_variable, index)
             return dictionary.add_row(cut_coefficients, cut_constant, slack_variable), I
 
         elif separator == "gomory_fractional":
-            cut_coefficients, cut_constant = self.make_Gomory_fractional_cut(
+            cut_coefficients, cut_constant = self._make_Gomory_fractional_cut(
                 dictionary, choose_variable, index)
             D = dictionary.add_row(cut_coefficients, cut_constant, slack_variable)
             # the new slack variable is integer while making a gomory fractional cut
@@ -2291,127 +2412,6 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             {x1, x2, x3}
         """
         return self._integer_variables
-
-    def make_Gomory_fractional_cut(self, dictionary, choose_variable, index):
-        r"""
-        Return the coefficients and constant for a Gomory fractional cut
-
-        INPUT:
-
-        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
-
-        - ``choose_variable`` -- the basic variable for the chosen cut
-
-        - ``index`` -- an integer indicating the choose_variable's index
-          in :meth:`constant_terms`
-
-        OUTPUT:
-
-        - ``cut_coefficients`` -- a list of coefficients for the cut
-
-        - ``cut_constant`` -- the constant for the cut
-
-        EXAMPLES::
-
-            sage: A = ([-1, 1], [8, 2])
-            sage: b = (2, 17)
-            sage: c = (55/10, 21/10)
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
-            ....: integer_variables=True)
-            sage: D = P.final_dictionary()
-            sage: v = D.basic_variables()[0]
-            sage: P.make_Gomory_fractional_cut(D, v, 0)
-            ([-1/10, -4/5], -3/10)
-        """
-        D = dictionary
-        b = D.constant_terms()
-        chosen_row = D.row_coefficients(choose_variable)
-        cut_coefficients = [chosen_row[i].floor() -
-                            chosen_row[i] for i in range(self.n())]
-        cut_constant = b[index].floor() - b[index]
-        return cut_coefficients, cut_constant
-
-    def make_Gomory_mixed_integer_cut(self, dictionary, choose_variable, index):
-        r"""
-        Return the coefficients and constant a Gomory fractional cut
-
-        INPUT:
-
-        - ``dictionary`` -- a :class:`dictionary <LPDictionary>`
-
-        - ``choose_variable`` -- the basic variable of the chosen cut
-
-        - ``index`` -- an integer indicating the choose_variable's index
-          in :meth:`constant_terms`
-
-        OUTPUT:
-
-        - ``cut_coefficients`` -- a list of coefficients for the cut
-
-        - ``cut_constant`` -- the constant for the cut
-
-        EXAMPLES::
-
-            sage: A = ([-1, 1], [8, 2])
-            sage: b = (2, 17)
-            sage: c = (55/10, 21/10)
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c,
-            ....: integer_variables=True)
-            sage: D = P.final_dictionary()
-            sage: v = D.basic_variables()[0]
-            sage: P.make_Gomory_mixed_integer_cut(D, v, 0)
-            ([-1/3, -2/7], -1)
-        """
-        D = dictionary
-        N = D.nonbasic_variables()
-        b = D.constant_terms()
-        I = self.integer_variables()
-        C = self.continuous_variables()
-        n = self.n()
-
-        chosen_row = D.row_coefficients(choose_variable)
-        f = [chosen_row[i] - chosen_row[i].floor() for i in range(n)]
-        f_0 = b[index] - b[index].floor()
-
-        # Make dictionaries to update f and the ith row of matrix A
-        # with the right orders
-        # First in integer variables, then in continuous variables
-        variables = list(I) + list(C)
-        set_N = set(N)
-        N_in_IC_order = [item for item in variables if item in set_N]
-        f_dic = {item: coef for item, coef in zip(N, f)}
-        new_f = [f_dic[item] for item in N_in_IC_order]
-        chosen_row_dic = {item: coef for item, coef in zip(N, chosen_row)}
-        new_chosen_row = [chosen_row_dic[item] for item in N_in_IC_order]
-
-        cut_coefficients = [0] * n
-        j = 0
-        for item in I:
-            if item in set_N:
-                f_j = new_f[j]
-                if f_j <= f_0:
-                    cut_coefficients[j] -= f_j / f_0
-                else:
-                    cut_coefficients[j] -= (1 - f_j) / (1 - f_0)
-                j += 1
-        for item in C:
-            if item in set_N:
-                a_j = new_chosen_row[j]
-                if a_j >= 0:
-                    cut_coefficients[j] -= a_j / f_0
-                else:
-                    cut_coefficients[j] += a_j / (1 - f_0)
-                j += 1
-        cut_constant = -1
-
-        # Update cut_coefficients in the original order
-        # in self._nonbasic_variable
-        cut_coef_dic = {item: coef for item, coef
-                        in zip(N_in_IC_order, cut_coefficients)}
-        new_cut_coefficients = [cut_coef_dic[item] for item in list(N)
-                                if item in set(N_in_IC_order)]
-
-        return new_cut_coefficients, cut_constant
 
     def objective_name(self):
         r"""
