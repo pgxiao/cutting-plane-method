@@ -1468,26 +1468,6 @@ class InteractiveMILPProblem(SageObject):
         MIP = InteractiveMILPProblemStandardForm.with_relaxation(P, newI)
         return (MIP, f) if transformation else MIP
 
-    def variable_types(self):
-        r"""
-        Return a tuple listing the variable types of all decision variables
-        of the relaxation of ``self``.
-
-        OUTPUT:
-
-        - a tuple of strings
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1])
-            sage: b = (1000, 1500)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=[">=", ""])
-            sage: P.variable_types()
-            ('>=', '')
-        """
-        return self.relaxation().variable_types()
-
     def relaxation(self):
         r"""
         Return the relaxation problem of ``self``
@@ -1508,6 +1488,26 @@ class InteractiveMILPProblem(SageObject):
         """
         return self._relaxation
 
+    def variable_types(self):
+        r"""
+        Return a tuple listing the variable types of all decision variables
+        of the relaxation of ``self``.
+
+        OUTPUT:
+
+        - a tuple of strings
+
+        EXAMPLES::
+
+            sage: A = ([1, 1], [3, 1])
+            sage: b = (1000, 1500)
+            sage: c = (10, 5)
+            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=[">=", ""])
+            sage: P.variable_types()
+            ('>=', '')
+        """
+        return self.relaxation().variable_types()
+        
     # Aliases for the standard notation
     A = constraint_coefficients
     b = constant_terms
