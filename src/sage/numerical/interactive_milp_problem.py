@@ -1525,13 +1525,10 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
     .. MATH::
 
         \begin{array}{l}
-        \begin{array}{lcrcrcl}
-         \max \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 10 x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 5 x_{2} \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} \
-         \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} x_{2} \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1000 \
-         \mspace{-6mu}&\mspace{-6mu}  \mspace{-6mu}&\mspace{-6mu} 3 x_{1} \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} x_{2} \mspace{-6mu}&\mspace{-6mu} \leq \mspace{-6mu}&\mspace{-6mu} 1500 \
-         \end{array} \\
-        x_{1}, x_{2} \geq 0
-        x_{2}, x_{1}, x_{4}, x_{3} \in \mathbb{Z}
+        \pm \max cx \\
+        Ax \leq b \\
+        x \geq 0 \\
+        x might have integer components.
         \end{array}
 
     INPUT:
