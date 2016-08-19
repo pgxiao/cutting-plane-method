@@ -369,7 +369,7 @@ class InteractiveMILPProblem(SageObject):
             result += line(vertices, color=color,
                            legend_label=label, thickness=1.5)
         return result
-        
+
     def _repr_(self):
         r"""
         Return a string representation of ``self``.
@@ -1548,7 +1548,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
     - ``problem_type`` -- (default: ``"max"``) a string specifying the
       problem type: either ``"max"`` or ``"-max"``
 
-    - ``slack_variables`` -- (default: depends on :func:`style`)
+    - ``slack_variables`` -- (default: depending on :func:`style`)
       a vector of slack variables or a string giving the base name
 
     - ``auxiliary_variable`` -- (default: same as ``x`` parameter with adjoined
@@ -1565,7 +1565,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
       for internal use and affects default variable names only
       
     - ``objective_name`` -- a string or a symbolic expression for the
-      objective used in dictionaries, default depends on :func:`style`
+      objective used in dictionaries, default depending on :func:`style`
 
     - ``objective_constant_term`` -- (default: 0) a constant term of the
       objective
@@ -1983,7 +1983,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
 
         - ``constant_term`` -- a constant term of the new constraint
 
-        - ``slack_variable`` -- (default: depends on :func:`style`)
+        - ``slack_variable`` -- (default: depending on :func:`style`)
           a vector of the slack variable or a string giving the name
 
         - ``integer_slack``-- (default: False) a boolean value
@@ -2062,7 +2062,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         INPUT:
 
         - ``objective_name`` -- a string or a symbolic expression for the
-          objective used in dictionaries, default depends on :func:`style`
+          objective used in dictionaries, default depending on :func:`style`
 
         OUTPUT:
 
@@ -2647,7 +2647,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
 
         - a :class:`dictionary <LPDictionary>` or
           a :class:`revised dictionary <LPRevisedDictionary>`
-          depends on the ``revised``
+          depending on the ``revised``
 
         - :class:`~sage.misc.html.HtmlFragment` with HTML/`\LaTeX` code of
           all encountered dictionaries        
