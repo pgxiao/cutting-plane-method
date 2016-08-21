@@ -1375,7 +1375,7 @@ class InteractiveMILPProblem(SageObject):
           one will be returned as well
         
         - you can pass (as keywords only) ``slack_variables``,
-          ``auxiliary_variable``,``objective_name`` to the constructor of
+          ``objective_name`` to the constructor of
           :class:`InteractiveMILPProblemStandardForm`
 
         OUTPUT:
@@ -1548,11 +1548,6 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
     - ``slack_variables`` -- (default: depending on :func:`style`)
       a vector of slack variables or a string giving the base name
 
-    - ``auxiliary_variable`` -- (default: same as ``x`` parameter with adjoined
-      ``"0"`` if it was given as a string, otherwise ``"x0"``) the auxiliary
-      name, expected to be the same as the first decision variable for
-      auxiliary problems
-
     - ``base_ring`` -- (default: the fraction field of a common ring for all
       input coefficients) a field to which all input coefficients will be
       converted
@@ -1588,8 +1583,8 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
     Unlike :class:`InteractiveMILPProblem`, this class does not allow you
     to adjust types of constraints (they are always ``"<="``) and
     variables (they are always ``">="``), and the problem type may only
-    be ``"max"`` or ``"-max"``. You may give custom names to slack and
-    auxiliary variables, but in most cases defaults should work::
+    be ``"max"`` or ``"-max"``. You may give custom names to slack variables,
+    but in most cases defaults should work::
 
         sage: P.decision_variables()
         (x1, x2)
@@ -1608,8 +1603,8 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
 
     def __init__(self, A=None, b=None, c=None, x="x",
                  problem_type="max", slack_variables=None,
-                 auxiliary_variable=None, base_ring=None,
-                 is_primal=True, objective_name=None,
+                 base_ring=None, is_primal=True, 
+                 objective_name=None,
                  objective_constant_term=0, 
                  relaxation=None, integer_variables=False):
         r"""
@@ -1634,7 +1629,6 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
                                 A=A, b=b, c=c, x=x, 
                                 problem_type=problem_type,
                                 slack_variables=slack_variables, 
-                                auxiliary_variable=auxiliary_variable,
                                 base_ring=base_ring,
                                 is_primal=is_primal,
                                 objective_name=objective_name,
@@ -2052,71 +2046,6 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         all_variables = list(decision_variables) + list(slack_variables)
         return set(all_variables)
 
-    def auxiliary_problem(self, objective_name=None):
-        r"""
-        Construct the auxiliary problem for the relaxation of ``self``.
-        
-        INPUT:
-
-        - ``objective_name`` -- a string or a symbolic expression for the
-          objective used in dictionaries, default depending on :func:`style`
-
-        OUTPUT:
-
-        - an :class:`LP problem in standard form <InteractiveLPProblemStandardForm>`
-
-        The auxiliary problem with the auxiliary variable `x_0` is
-
-        .. MATH::
-
-            \begin{array}{l}
-            \max - x_0 \\
-            - x_0 + A_i x \leq b_i \text{ for all } i \\
-            x \geq 0
-            \end{array}\ .
-
-        Such problems are used when the :meth:`initial_dictionary` is
-        infeasible.
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1], [-1, -1])
-            sage: b = (1000, 1500, -400)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
-            sage: AP = P.auxiliary_problem()
-        """
-        return self.relaxation().auxiliary_problem(objective_name=objective_name)
-
-    def auxiliary_variable(self):
-        r"""
-        Return the auxiliary variable of ``self``.
-
-        Note that the auxiliary variable may or may not be among
-        :meth:`~InteractiveMILPProblem.decision_variables`.
-
-        OUTPUT:
-
-        - a variable of the :meth:`coordinate_ring` of ``self``
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1], [-1, -1])
-            sage: b = (1000, 1500, -400)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
-            sage: P.auxiliary_variable()
-            x0
-            sage: P.decision_variables()
-            (x1, x2)
-            sage: AP = P.auxiliary_problem()
-            sage: AP.auxiliary_variable()
-            x0
-            sage: AP.decision_variables()
-            (x0, x1, x2)
-        """
-        return self.relaxation().auxiliary_variable()
-
     def coordinate_ring(self):
         r"""
         Return the coordinate ring of the relaxation of ``self``.
@@ -2124,7 +2053,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         OUTPUT:
 
         - a polynomial ring over the :meth:`~InteractiveMILPProblem.base_ring` of ``self`` in
-          the :meth:`auxiliary_variable`, :meth:`~InteractiveMILPProblem.decision_variables`,
+          the :meth:`auxiliary_variable`, :meth:`~InteractiveLPProblem.decision_variables`,
           and :meth:`slack_variables` with "neglex" order
 
         EXAMPLES::
@@ -2138,8 +2067,6 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             over Rational Field
             sage: P.base_ring()
             Rational Field
-            sage: P.auxiliary_variable()
-            x0
             sage: P.decision_variables()
             (x1, x2)
             sage: P.slack_variables()
@@ -2175,52 +2102,6 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             (x1, x2)
         """
         return self.relaxation().revised_dictionary(*x_B).dictionary()
-
-    def feasible_dictionary(self, auxiliary_dictionary):
-        r"""
-        Construct a feasible dictionary for the relaxation of ``self``.
-
-        INPUT:
-
-        - ``auxiliary_dictionary`` -- an optimal dictionary for the
-          :meth:`auxiliary_problem` of ``self`` with the optimal value `0` and
-          a non-basic auxiliary variable
-
-        OUTPUT:
-
-        - a feasible :class:`dictionary <LPDictionary>` for ``self``
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1], [-1, -1])
-            sage: b = (1000, 1500, -400)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
-            sage: AP = P.auxiliary_problem()
-            sage: D = AP.initial_dictionary()
-            sage: D.enter(0)
-            sage: D.leave(5)
-            sage: D.update()
-            sage: D.enter(1)
-            sage: D.leave(0)
-            sage: D.update()
-            sage: D.is_optimal()
-            True
-            sage: D.objective_value()
-            0
-            sage: D.basic_solution()
-            (0, 400, 0)
-            sage: D = P.feasible_dictionary(D)
-            sage: D.is_optimal()
-            False
-            sage: D.is_feasible()
-            True
-            sage: D.objective_value()
-            4000
-            sage: D.basic_solution()
-            (400, 0)
-        """
-        return self.relaxation().feasible_dictionary(auxiliary_dictionary)
 
     def final_dictionary(self):
         r"""
@@ -2575,8 +2456,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         INPUT:
 
         - basic variables for the dictionary to be constructed; if not given,
-          :meth:`slack_variables` will be used, perhaps with the
-          :meth:`auxiliary_variable` to give a feasible dictionary
+          :meth:`slack_variables` will be used
 
         OUTPUT:
 
@@ -2599,17 +2479,6 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             (x3, x4)
             sage: P.initial_dictionary().basic_variables()
             (x3, x4)
-
-        Unless it is infeasible, in which case a feasible dictionary for the
-        auxiliary problem is constructed::
-
-            sage: A = ([1, 1], [3, 1], [-1,-1])
-            sage: b = (1000, 1500, -400)
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
-            sage: P.initial_dictionary().is_feasible()
-            False
-            sage: P.revised_dictionary().basic_variables()
-            (x3, x4, x0)
         """
         return self.relaxation().revised_dictionary(*x_B)
 
