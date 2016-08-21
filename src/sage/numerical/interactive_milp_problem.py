@@ -420,33 +420,6 @@ class InteractiveMILPProblem(SageObject):
         """
         return self.relaxation()._solution(x)
 
-    @cached_method
-    def _solve(self):
-        r"""
-        Return an optimal solution and the optimal value of the relaxation of ``self``.
-
-        OUTPUT:
-
-        - A pair consisting of a vector and a number. If relaxation of the problem
-          is infeasible, both components are ``None``. If the problem is
-          unbounded, the first component is ``None`` and the second is
-          `\pm \infty`.
-
-        This function uses "brute force" solution technique of evaluating the
-        objective at all vertices of the feasible set and taking into account
-        its rays and lines.
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1])
-            sage: b = (1000, 1500)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
-            sage: P._solve()
-            ((250, 750), 6250)
-        """
-        return self.relaxation()._solve()
-
     def Abcx(self):
         r"""
         Return `A`, `b`, `c`, and `x` of the relaxation of ``self`` as a tuple.
@@ -910,13 +883,13 @@ class InteractiveMILPProblem(SageObject):
             sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
             sage: P.objective_constant_term()
             0
-            sage: P.optimal_value()
+            sage: P.relaxation().optimal_value()
             6250
             sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"],
             ....:       variable_type=">=", objective_constant_term=-1250)
             sage: P.objective_constant_term()
             -1250
-            sage: P.optimal_value()
+            sage: P.relaxation().optimal_value()
             5000
         """
         return self.relaxation().objective_constant_term()
@@ -945,45 +918,6 @@ class InteractiveMILPProblem(SageObject):
             2000
         """
         return self.relaxation().objective_value(*x)
-
-    def optimal_solution(self):
-        r"""
-        Return **an** optimal solution of the relaxation of ``self``.
-
-        OUTPUT:
-
-        - a vector or ``None`` if there are no optimal solutions
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1])
-            sage: b = (1000, 1500)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
-            sage: P.optimal_solution()
-            (250, 750)
-        """
-        return self.relaxation().optimal_solution()
-
-    def optimal_value(self):
-        r"""
-        Return the optimal value for the relaxation of ``self``.
-
-        OUTPUT:
-
-        - a number if the problem is bounded, `\pm \infty` if it is unbounded,
-          or ``None`` if it is infeasible
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1])
-            sage: b = (1000, 1500)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
-            sage: P.optimal_value()
-            6250
-        """
-        return self.relaxation().optimal_value()
 
     def plot(self, *args, **kwds):
         r"""
@@ -1205,7 +1139,7 @@ class InteractiveMILPProblem(SageObject):
         b = self.b()
         xmin, xmax, ymin, ymax = self._get_plot_bounding_box(
             self.feasible_set(), b, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
-        start = self.optimal_solution()
+        start = self.relaxation().optimal_solution()
         start = vector(QQ, start.n() if start is not None
                        else [xmin + (xmax-xmin)/2, ymin + (ymax-ymin)/2])
         length = min(xmax - xmin, ymax - ymin) / 5
@@ -1220,7 +1154,7 @@ class InteractiveMILPProblem(SageObject):
             level = Polyhedron(vertices=[start + i*(end-start)], lines=[d])
             level = box.intersection(level)
             if level.vertices():
-                if i == 0 and self.is_bounded():
+                if i == 0 and self.relaxation().is_bounded():
                     result += line(level.vertices(), color="black",
                                    thickness=2)
                 else:
@@ -1399,19 +1333,19 @@ class InteractiveMILPProblem(SageObject):
             [ 0 -1]
             Domain: Vector space of dimension 3 over Rational Field
             Codomain: Vector space of dimension 2 over Rational Field
-            sage: PSF.optimal_solution()
+            sage: PSF.relaxation().optimal_solution()
             (0, 1000, 0)
-            sage: P.optimal_solution()
+            sage: P.relaxation().optimal_solution()
             (0, 1000)
-            sage: P.is_optimal(PSF.optimal_solution())
+            sage: P.relaxation().is_optimal(PSF.relaxation().optimal_solution())
             Traceback (most recent call last):
             ...
             TypeError: given input is not a solution for this problem
-            sage: P.is_optimal(f(PSF.optimal_solution()))
+            sage: P.relaxation().is_optimal(f(PSF.relaxation().optimal_solution()))
             True
-            sage: PSF.optimal_value()
+            sage: PSF.relaxation().optimal_value()
             5042
-            sage: P.optimal_value()
+            sage: P.relaxation().optimal_value()
             5042
             sage: P.integer_variables()
             {x1, x2}
@@ -1429,13 +1363,13 @@ class InteractiveMILPProblem(SageObject):
             ....:                            problem_type="min", 
             ....:                            integer_variables=True)
             sage: PSF, f = P.standard_form(True)
-            sage: PSF.optimal_solution()
+            sage: PSF.relaxation().optimal_solution()
             (0, 1000, 0)
-            sage: P.optimal_solution()
+            sage: P.relaxation().optimal_solution()
             (0, 1000)
-            sage: PSF.optimal_value()
+            sage: PSF.relaxation().optimal_value()
             -5042
-            sage: P.optimal_value()
+            sage: P.relaxation().optimal_value()
             -5042
 
         Integer variables are passed to standard form problem::
