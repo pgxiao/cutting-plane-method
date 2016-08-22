@@ -721,7 +721,7 @@ class InteractiveMILPProblem(SageObject):
 
     def is_feasible(self, *x):
         r"""
-        Check if the relaxation of ``self`` or given solution is feasible.
+        Check if ``self`` or given solution is feasible.
         
         INPUT:
         
@@ -731,29 +731,54 @@ class InteractiveMILPProblem(SageObject):
 
         OUTPUT:
 
-        - ``True`` is the relaxation of this problem or given solution is
-          feasible, ``False`` otherwise
+        - When ``*x`` is given, output is ``True`` if the relaxation of this
+          problem or given solution is feasible and satisfies the integrality
+          constraints , ``False`` otherwise. When ``*x`` is not given, raise 
+          NotImplementedError
 
         EXAMPLES::
 
-            sage: A = ([1, 1], [3, 1])
-            sage: b = (1000, 1500)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=")
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c, integer_variables=True)
+            sage: P.is_feasible(1, 3)
+            True
+            sage: P.is_feasible(1, 2/3)
+            False
+            sage: P.is_feasible(1, 10/3)
+            False
             sage: P.is_feasible()
-            True
-            sage: P.is_feasible(100, 200)
-            True
-            sage: P.is_feasible(1000, 200)
-            False
-            sage: P.is_feasible([1000, 200])
-            False
-            sage: P.is_feasible(1000)
             Traceback (most recent call last):
             ...
-            TypeError: given input is not a solution for this problem
+            NotImplementedError: this method is not implemented if a solution is not given
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P.is_feasible(1/2, 3/2)
+            True
+            sage: P = InteractiveMILPProblemStandardForm(A, b, c, integer_variables={'x1'})
+            sage: P.is_feasible(1, 2/3)
+            True
+            sage: P.is_feasible(2/3, 1)
+            False
         """
-        return self.relaxation().is_feasible(*x)
+        if x:
+            if self.relaxation().is_feasible(x):
+                v = self.Abcx()[3]
+                I_v = self.integer_variables().intersection(set(v))
+                if I_v == set():
+                    return True 
+                I_indices = [tuple(v).index(i) for i in tuple(I_v)]
+                I_values = [self._solution(x)[i] for i in I_indices]
+                return True if all(i.is_integer() for i in I_values) else False
+            else:
+                return False
+        else:
+            # This part amounts to solving an integer program, and we can't use
+            # polyhedral computations to get the feasible sets of (mixed) integer programs
+            # like what we did for linear programs in interactive_simplex_method
+            # ("this method is not implemented if a solution is not given")
+            raise NotImplementedError (
+                "this method is not implemented if a solution is not given")
 
     def is_negative(self):
         r"""
