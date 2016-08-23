@@ -665,10 +665,47 @@ class InteractiveMILPProblem(SageObject):
             sage: c = (10, 5)
             sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
             sage: P.feasible_set()
-            A 2-dimensional polyhedron in QQ^2
-            defined as the convex hull of 4 vertices
+            A 2-dimensional polyhedron in QQ^2 defined as the convex hull of 4 vertices
+            sage: A = ([-1, 1], [8, 2])
+            sage: b = (2, 17)
+            sage: c = (55/10, 21/10)
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=",
+            ....:                            integer_variables=True)
+            sage: P.relaxation().is_bounded()
+            True
+            sage: P.feasible_set()
+            ((0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (1, 3), (2, 0))
+            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=",
+            ....:                            integer_variables={'x1'})
+            sage: P.feasible_set()
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: this method is not implemented
+            if therelaxation's feasible set is not bounded and
+            not all decision variables are integer
+            sage: b = (-1000, 1500)
+            sage: P = InteractiveMILPProblem(A, b, c, constraint_type=">=",
+            ....:                            integer_variables=True)
+            sage: P.relaxation().is_bounded()
+            False
+            sage: P.feasible_set()
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: this method is not implemented
+            if therelaxation's feasible set is not bounded and
+            not all decision variables are integer
         """
-        return self.relaxation().feasible_set()
+        set_x = set(self.Abcx()[3])
+        I_x = self.integer_variables().intersection(set_x)
+        FS = self.relaxation().feasible_set()
+        if I_x == set():
+            return FS
+        elif I_x == set_x and FS.is_compact():
+            return FS.integral_points()
+        else:
+            raise NotImplementedError("this method is not implemented if the"
+                                      "relaxation's feasible set is not bounded "
+                                      "and not all decision variables are integer")  
 
     def integer_variables(self):
         r"""
@@ -693,31 +730,9 @@ class InteractiveMILPProblem(SageObject):
 
     def is_bounded(self):
         r"""
-        Check if the relaxation of ``self`` is bounded.
-
-        OUTPUT:
-
-        - ``True`` is the relaxation of ``self`` is bounded, ``False`` otherwise
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1])
-            sage: b = (1000, 1500)
-            sage: c = (10, 5)
-            sage: P = InteractiveMILPProblem(A, b, c, ["C", "B"], variable_type=">=")
-            sage: P.is_bounded()
-            True
-            
-        Note that infeasible problems are always bounded::
-
-            sage: b = (-1000, 1500)
-            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=")
-            sage: P.is_feasible()
-            False
-            sage: P.is_bounded()
-            True
+        Check if``self`` is bounded.
         """
-        return self.relaxation().is_bounded()
+        raise NotImplementedError("this method is not implemented")
 
     def is_feasible(self, *x):
         r"""
@@ -741,7 +756,7 @@ class InteractiveMILPProblem(SageObject):
             sage: A = ([-1, 1], [8, 2])
             sage: b = (2, 17)
             sage: c = (55/10, 21/10)
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c, integer_variables=True)
+            sage: P = InteractiveMILPProblem(A, b, c, integer_variables=True)
             sage: P.is_feasible(1, 3)
             True
             sage: P.is_feasible(1, 2/3)
@@ -752,10 +767,10 @@ class InteractiveMILPProblem(SageObject):
             Traceback (most recent call last):
             ...
             NotImplementedError: this method is not implemented if a solution is not given
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c)
+            sage: P = InteractiveMILPProblem(A, b, c)
             sage: P.is_feasible(1/2, 3/2)
             True
-            sage: P = InteractiveMILPProblemStandardForm(A, b, c, integer_variables={'x1'})
+            sage: P = InteractiveMILPProblem(A, b, c, integer_variables={'x1'})
             sage: P.is_feasible(1, 2/3)
             True
             sage: P.is_feasible(2/3, 1)
@@ -1048,7 +1063,7 @@ class InteractiveMILPProblem(SageObject):
             # Either we use QQ or crash
             A = A.n().change_ring(QQ)
             b = b.n().change_ring(QQ)
-        F = self.feasible_set()
+        F = self.relaxation().feasible_set()
         xmin, xmax, ymin, ymax = self._get_plot_bounding_box(
             F, b, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
         pad = max(xmax - xmin, ymax - ymin) / 20
@@ -1163,7 +1178,7 @@ class InteractiveMILPProblem(SageObject):
         """
         b = self.b()
         xmin, xmax, ymin, ymax = self._get_plot_bounding_box(
-            self.feasible_set(), b, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+            self.relaxation().feasible_set(), b, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
         start = self.relaxation().optimal_solution()
         start = vector(QQ, start.n() if start is not None
                        else [xmin + (xmax-xmin)/2, ymin + (ymax-ymin)/2])
