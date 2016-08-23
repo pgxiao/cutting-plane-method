@@ -813,36 +813,6 @@ class InteractiveMILPProblem(SageObject):
             True
         """
         return self.relaxation().is_negative()
-
-    def is_optimal(self, *x):
-        r"""
-        Check if given solution of the relaxation is feasible.
-        
-        INPUT:
-        
-        - anything that can be interpreted as a valid solution for the relaxation
-          this problem, i.e. a sequence of values for all decision variables
-
-        OUTPUT:
-
-        - ``True`` is the given solution is optimal, ``False`` otherwise
-
-        EXAMPLES::
-
-            sage: A = ([1, 1], [3, 1])
-            sage: b = (1000, 1500)
-            sage: c = (15, 5)
-            sage: P = InteractiveMILPProblem(A, b, c, variable_type=">=")
-            sage: P.is_optimal(100, 200)
-            False
-            sage: P.is_optimal(500, 0)
-            True
-            sage: P.is_optimal(499, 3)
-            True
-            sage: P.is_optimal(501, -3)
-            False
-        """
-        return self.relaxation().is_optimal(*x)
         
     def n_constraints(self):
         r"""
