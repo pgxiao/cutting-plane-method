@@ -2427,7 +2427,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
         return self.relaxation().revised_dictionary(*x_B)
 
     def run_cutting_plane_method(self, separator=None, revised=False,
-                                plot=False, *args, **kwds):
+                                plot=False, show_steps=False, *args, **kwds):
         r"""
         Perform the cutting plane method to solve a MILP problem.
         Return the number of cuts needed to solve the problem and
@@ -2443,7 +2443,12 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
           cutting plane method.
 
         - ``plot`` -- (default:False) a boolean value to decide whether
-          plot the cuts or not when using revised dictionary
+          to plot the final problem or not when using revised dictionary
+
+        - ``show_steps`` -- (default:False) a boolean value to decide
+          whether to return each step of the cutting plane method or not.
+          When ``show_steps`` is ``True``, plot each new problem 
+          when using revised dictionary
 
         - ``xmin``, ``xmax``, ``ymin``, ``ymax`` -- bounds for the axes, if
           not given, an attempt will be made to pick reasonable values
@@ -2460,7 +2465,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
           depending on the ``revised``
 
         - :class:`~sage.misc.html.HtmlFragment` with HTML/`\LaTeX` code of
-          all encountered dictionaries        
+          all encountered dictionaries if ``show_steps`` is ``True``    
 
         EXAMPLES::
 
@@ -2470,7 +2475,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             sage: P = InteractiveMILPProblemStandardForm(A, b, c,
             ....: integer_variables=True)
             sage: n, D, output = P.run_cutting_plane_method(separator="gomory_fractional", 
-            ....: revised=True, plot=True, xmin=-2, xmax=6, ymin=0, ymax=12)
+            ....: revised=True, plot=True, show_steps=True, xmin=-2, xmax=6, ymin=0, ymax=12)
             sage: n
             5
             sage: type(D)
@@ -2480,34 +2485,32 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             \begin{equation*}
             ...
             \end{equation*}
-            Since $x_{2}, x_{1}, x_{4}, x_{3}$ are integer, we need to use cutting plane method to the final dictionary:\\
+            We solve the linear relaxation with the simplex methodobtaining the following final dictionary:
             \begin{equation*}
             ...
             \end{equation*}
-            After adding cut 1,
-            the dictionary becomes infeasible:
+            After adding cut 1
+            ...
             \begin{equation*}
             ...
             \end{equation*}
-            Run dual simplex method to solve the infeasible dictionary.\\
+            Run the dual simplex to restore primal feasibility.
             The dictionary becomes:
             \begin{equation*}
             ...
             \end{equation*}
-            Now we have integer variables: $x_{2}, x_{1}, x_{5}, x_{4}, x_{3}$ \\
-            Since some integer variables don't have integer solutions, we need to use cutting plane method again.\\
+            Now we have integer variables: $x_{2}, x_{1}, x_{5}, x_{4}, x_{3}$
+            Since some integer variables don't have integer solutions, we need to make another cut.
             ...
-            After adding cut 5,
-            the dictionary becomes infeasible:
             \begin{equation*}
             ...
             \end{equation*}
-            Run dual simplex method to solve the infeasible dictionary.\\
+            Run the dual simplex to restore primal feasibility.
             The dictionary becomes:
             \begin{equation*}
             ...
             \end{equation*}
-            The dictionary now is feasible and optimal.\\
+            The dictionary now is feasible and optimal, as well as integer feasibility.
             The optimal value: $\frac{59}{5}$. An optimal solution: $\left(1,\,3\right)$.
 
             sage: from sage.numerical.interactive_milp_problem \
@@ -2516,7 +2519,7 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             sage: c1 = (-1/27, 1/31)
             sage: P1 = InteractiveMILPProblemStandardForm(A1, b1, c1,
             ....: integer_variables=True)
-            sage: n, D, output = P1.run_cutting_plane_method(
+            sage: n, D = P1.run_cutting_plane_method(
             ....: separator="gomory_fractional")
             sage: n
             9
@@ -2524,38 +2527,54 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             <class 'sage.numerical.interactive_simplex_method.LPDictionary'>
         """
         n = 0
-        output = []
-        output.append("The original problem is:")
-        output.append(r"\begin{equation*}")
-        output.append(self._latex_())
-        output.append(r"\end{equation*}")
-        if revised:
-            D = self.final_revised_dictionary()
-        else:
-            D = self.final_dictionary()
-
+        D = self.final_revised_dictionary() if revised else self.final_dictionary()
         I = self.integer_variables()
+
+        if show_steps:
+            output = []
+            output.append("The original problem is:")
+            output.append(r"\begin{equation*}")
+            output.append(self._latex_())
+            output.append(r"\end{equation*}")
+            if I == set():
+                output.append("All variables are continuous, "
+                              "there is no need to use cutting plane method.")
+            else:
+                output.append("We solve the linear relaxation with the simplex method"
+                              "obtaining the following final dictionary:")
+                output.append(D._html_())
+
         if I == set():
-            output.append("All variables are continuous, "
-                          "there is no need for using cutting plane method" + r"\\")
             return n, D, HtmlFragment("\n".join(output))
-        else:
-            output.append("Since " + r"${}$".format(", ".join(map(latex, I))) + " are integer, "
-                          "we need to use cutting plane method to the final dictionary:" + r"\\")
-            output.append(D._html_())
 
         while True:
             D, I = self.add_a_cut(D, I, separator=separator)
             n += 1
             
-            output.append("After adding cut " + str(n) + ", ")
-            output.append("the dictionary becomes infeasible:")
-            output.append(D._html_())
-            output.append("Run dual simplex method to solve the infeasible dictionary." + r"\\")
+            if show_steps:
+                output.append("After adding cut " + str(n))
+                if revised and plot:   # show the cut in problem form when using LPRevisedDictionary
+                    P = InteractiveMILPProblemStandardForm.with_relaxation(
+                                            D._problem, integer_variables=I)
+                    output.append("i.e.")
+                    output.append(r"${}$".format(
+                                 _latex_product(P.Abcx()[0].rows()[-1], 
+                                                P.Abcx()[3],
+                                                " ", 
+                                                tail=[P.constraint_types()[-1], P.Abcx()[1][-1]])))
+                    result = P.plot(number_of_cuts=n, *args, **kwds)
+                    result.show()
+                output.append(", the dictionary becomes infeasible (the cut is highlight in red in the dictionary):")
+                D.leave(D.basic_variables()[-1]) # highlight the cut in red
+                output.append(D._html_())
+                D._leaving = None # undo D.leave
+                output.append("Run the dual simplex to restore primal feasibility.")
             
             D.run_dual_simplex_method()
-            output.append("The dictionary becomes:")
-            output.append(D._html_())
+            
+            if show_steps:
+                output.append("The dictionary becomes:")
+                output.append(D._html_())
             
             B = D.basic_variables()
             I_basic = set(B).intersection(I)
@@ -2563,24 +2582,29 @@ class InteractiveMILPProblemStandardForm(InteractiveMILPProblem):
             I_constant = [D.constant_terms()[i] for i in I_indices]
             if all(i.is_integer() for i in I_constant):
                 break
-            if n > 0:
-                output.append("Now we have integer variables: "
-                              r"${}$".format(", ".join(map(latex, I))) +  r" \\")
-                output.append("Since some integer variables don't have integer solutions, "
-                              "we need to use cutting plane method again." + r"\\")
 
-        output.append("The dictionary now is feasible and optimal." + r"\\")
-        output.append(("The optimal value: ${}$. "
-                       "An optimal solution: ${}$.").format(
-                       latex(- D.objective_value() if self.is_negative() else D.objective_value()), 
-                       latex(D.basic_solution())))
+            if show_steps:
+                if n > 0:
+                    output.append("Now we have integer variables: "
+                                  r"${}$".format(", ".join(map(latex, I))))
+                    output.append("Since some integer variables don't have integer solutions, "
+                                  "we need to make another cut.")
+        if show_steps:
+            output.append("The dictionary now is feasible and optimal, as well as integer feasibility.")
+            output.append(("The optimal value: ${}$. "
+                           "An optimal solution: ${}$.").format(
+                           latex(- D.objective_value() if self.is_negative() else D.objective_value()), 
+                           latex(D.basic_solution())))
         # we only plot the final problem when we use revised dictionary
         # since only revised dictionary knows the original problem variables
         if plot and revised:
             P = InteractiveMILPProblemStandardForm.with_relaxation(D._problem, integer_variables=I)
             result = P.plot(number_of_cuts=n, *args, **kwds)
             result.show()
-        return n, D, HtmlFragment("\n".join(output))
+        if show_steps:
+            return n, D, HtmlFragment("\n".join(output))
+        else:
+            return n, D
 
     def run_revised_simplex_method(self):
         r"""
